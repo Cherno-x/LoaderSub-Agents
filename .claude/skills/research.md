@@ -78,7 +78,7 @@ for (i = 0; i < len; i++) data[i] ^= KEY;
 ## Knowledge Base Commands
 
 ```bash
-# Add evasion technique
+# Add evasion technique (with AI dedup check)
 python lib/knowledge_manager.py add-evasion \
   --name "Technique Name" \
   --type "api_obfuscation" \
@@ -87,13 +87,72 @@ python lib/knowledge_manager.py add-evasion \
   --apis "API1,API2" \
   --complexity "medium"
 
-# Add loader component
-python lib/knowledge_manager.py add-component \
-  --type "executors" \
-  --name "Component Name" \
+# Check for duplicates before adding (AI-friendly output)
+python lib/knowledge_manager.py dedup-check \
+  --name "Technique Name" \
+  --type "api_obfuscation" \
   --description "..." \
   --apis "API1,API2"
+
+# Find similar techniques
+python lib/knowledge_manager.py find-similar --name "syscall"
+
+# Format for AI analysis
+python lib/knowledge_manager.py find-similar --name "syscall" --format-ai
 ```
+
+## AI-Assisted Deduplication Workflow
+
+**Before adding any technique, follow this workflow:**
+
+### Step 1: Find Similar Techniques
+
+```bash
+python lib/knowledge_manager.py dedup-check \
+  --name "New Technique Name" \
+  --type "technique_type" \
+  --description "Full description" \
+  --apis "API1,API2"
+```
+
+### Step 2: AI Analysis
+
+The output will show:
+1. **New technique details**
+2. **Similar techniques found** (with similarity scores)
+3. **Comparison factors** (name, keywords, APIs, type, source)
+
+### Step 3: AI Decision Criteria
+
+Analyze and decide:
+
+| Condition | Decision |
+|-----------|----------|
+| **Exact name match** | SKIP - Duplicate |
+| **Same technique, different name** | SKIP - Duplicate |
+| **Same goal, different implementation** | ADD - Both useful |
+| **Different goal, similar APIs** | ADD - Different purpose |
+| **Same source, same approach** | SKIP - Duplicate |
+| **Same source, different approach** | ADD - Variation |
+
+### Step 4: Add or Skip
+
+```bash
+# If ADD:
+python lib/knowledge_manager.py add-evasion --name "..." --type "..." ...
+
+# If SKIP:
+# Report duplicate and reason
+```
+
+## Similarity Scoring
+
+| Score | Meaning |
+|-------|---------|
+| 100 | Exact name match - definitely duplicate |
+| 50-99 | High similarity - needs careful review |
+| 30-49 | Related technique - likely different |
+| < 30 | Not similar - can add |
 
 ## Output Format
 
@@ -101,4 +160,8 @@ After analysis, output:
 1. Technique name and type
 2. Brief description
 3. Complexity (simple/medium/complex)
-4. Knowledge base ID
+4. **Dedup check result**:
+   - NEW: No similar techniques found
+   - DUPLICATE: Exact or near-duplicate found
+   - VARIATION: Similar but different implementation
+5. Knowledge base ID (if added)

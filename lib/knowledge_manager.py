@@ -126,8 +126,243 @@ class KnowledgeManager:
                 return t
         return None
 
-    def add_evasion_technique(self, technique: dict) -> str:
-        """Add new evasion technique"""
+    def find_similar_techniques(self, technique: dict) -> list:
+        """
+        Find techniques that might be similar (for AI/human review).
+
+        Returns list of similar techniques with similarity info.
+        Does NOT decide if duplicate - just finds candidates for review.
+        """
+        data = self._load_json("evasion")
+        similar = []
+
+        name = technique.get("name", "").lower().strip()
+        desc = technique.get("description", "").lower()
+        ttype = technique.get("type", technique.get("evasion_type", ""))
+        apis = set(technique.get("apis", []))
+        keywords = self._extract_keywords(name + " " + desc)
+
+        for existing in data["techniques"]:
+            existing_name = existing.get("name", "").lower().strip()
+            existing_desc = existing.get("description", "").lower()
+            existing_type = existing.get("type", existing.get("evasion_type", ""))
+            existing_apis = set(existing.get("apis", []))
+            existing_keywords = self._extract_keywords(existing_name + " " + existing_desc)
+
+            similarity_score = 0
+            similarity_reasons = []
+
+            # 1. Exact name match (definite duplicate candidate)
+            if name == existing_name:
+                similar.append({
+                    "technique": existing,
+                    "similarity_score": 100,
+                    "reasons": ["Exact name match"],
+                    "match_type": "exact_name"
+                })
+                continue
+
+            # 2. Same type
+            if ttype and ttype == existing_type:
+                similarity_score += 20
+                similarity_reasons.append(f"Same type: {ttype}")
+
+            # 3. Name similarity
+            name_similarity = self._calculate_similarity(name, existing_name)
+            if name_similarity > 0.5:
+                similarity_score += int(name_similarity * 40)
+                similarity_reasons.append(f"Name similarity: {name_similarity:.0%}")
+
+            # 4. Keyword overlap
+            if keywords and existing_keywords:
+                keyword_overlap = len(keywords & existing_keywords) / max(len(keywords), len(existing_keywords))
+                if keyword_overlap > 0.3:
+                    similarity_score += int(keyword_overlap * 30)
+                    shared = keywords & existing_keywords
+                    if shared:
+                        similarity_reasons.append(f"Shared keywords: {', '.join(list(shared)[:5])}")
+
+            # 5. API overlap
+            if apis and existing_apis:
+                api_overlap = len(apis & existing_apis) / max(len(apis), len(existing_apis))
+                if api_overlap > 0.5:
+                    similarity_score += int(api_overlap * 30)
+                    shared_apis = apis & existing_apis
+                    similarity_reasons.append(f"Shared APIs: {', '.join(list(shared_apis)[:3])}")
+
+            # 6. Source overlap
+            source = technique.get("source", "")
+            existing_source = existing.get("source", "")
+            if source and existing_source and source == existing_source:
+                similarity_score += 10
+                similarity_reasons.append(f"Same source: {source}")
+
+            if similarity_score >= 30:
+                similar.append({
+                    "technique": existing,
+                    "similarity_score": similarity_score,
+                    "reasons": similarity_reasons,
+                    "match_type": "similar" if similarity_score >= 50 else "related"
+                })
+
+        # Sort by similarity score
+        similar.sort(key=lambda x: x["similarity_score"], reverse=True)
+        return similar
+
+    def _extract_keywords(self, text: str) -> set:
+        """Extract important keywords from text"""
+        # Common words to ignore
+        stop_words = {
+            "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+            "of", "with", "by", "from", "is", "are", "was", "were", "be", "been",
+            "being", "have", "has", "had", "do", "does", "did", "will", "would",
+            "could", "should", "may", "might", "must", "shall", "can", "need",
+            "this", "that", "these", "those", "it", "its", "as", "if", "when",
+            "than", "so", "no", "not", "only", "own", "same", "than", "too",
+            "very", "just", "also", "now", "here", "there", "where", "which",
+            "who", "whom", "what", "how", "why", "all", "each", "every", "both",
+            "few", "more", "most", "other", "some", "such", "any", "into", "through"
+        }
+
+        # Important security terms (lower weight but meaningful)
+        security_terms = {
+            "syscall", "hook", "inject", "bypass", "evade", "obfuscate",
+            "encrypt", "decrypt", "shellcode", "loader", "memory", "process",
+            "thread", "api", "ntdll", "kernel", "user", "peb", "teb", "amsi",
+            "etw", "edr", "av", "antivirus", "debug", "sandbox", "vm", "virtual"
+        }
+
+        words = text.lower().split()
+        keywords = set()
+
+        for word in words:
+            word = word.strip(".,!?;:\"'()[]{}")
+            if len(word) >= 3 and word not in stop_words:
+                keywords.add(word)
+
+        return keywords
+
+    def format_comparison_for_ai(self, new_technique: dict, similar_techniques: list) -> str:
+        """Format comparison for AI analysis"""
+        output = []
+        output.append("=" * 60)
+        output.append("NEW TECHNIQUE TO ADD:")
+        output.append("=" * 60)
+        output.append(f"Name: {new_technique.get('name')}")
+        output.append(f"Type: {new_technique.get('type', new_technique.get('evasion_type'))}")
+        output.append(f"Description: {new_technique.get('description')}")
+        output.append(f"Complexity: {new_technique.get('complexity')}")
+        output.append(f"Detection Risk: {new_technique.get('detection_risk')}")
+        if new_technique.get('apis'):
+            output.append(f"APIs: {', '.join(new_technique.get('apis', []))}")
+        output.append(f"Source: {new_technique.get('source', 'unknown')}")
+        output.append("")
+
+        if not similar_techniques:
+            output.append("No similar techniques found in knowledge base.")
+            output.append("RECOMMENDATION: ADD (no duplicates detected)")
+        else:
+            output.append("=" * 60)
+            output.append(f"SIMILAR TECHNIQUES FOUND ({len(similar_techniques)}):")
+            output.append("=" * 60)
+
+            for i, item in enumerate(similar_techniques, 1):
+                t = item["technique"]
+                output.append(f"\n--- [{i}] {t['id']}: {t['name']} (Score: {item['similarity_score']}) ---")
+                output.append(f"Type: {t.get('type', t.get('evasion_type'))}")
+                output.append(f"Description: {t.get('description')}")
+                output.append(f"Complexity: {t.get('complexity')}")
+                output.append(f"Detection Risk: {t.get('detection_risk')}")
+                if t.get('apis'):
+                    output.append(f"APIs: {', '.join(t.get('apis', []))}")
+                output.append(f"Match Reasons: {', '.join(item['reasons'])}")
+                output.append(f"Match Type: {item['match_type']}")
+
+            output.append("\n" + "=" * 60)
+            output.append("AI ANALYSIS REQUESTED:")
+            output.append("=" * 60)
+            output.append("Please analyze and determine if the new technique is:")
+            output.append("  1. DUPLICATE - Same technique, should skip")
+            output.append("  2. VARIATION - Same goal but different implementation, keep both")
+            output.append("  3. DIFFERENT - Different technique entirely, add")
+            output.append("")
+            output.append("Consider:")
+            output.append("  - Is the core technique the same or different?")
+            output.append("  - Does it achieve the same goal in a different way?")
+            output.append("  - Would a defender need different detection methods?")
+            output.append("  - Is the complexity/detection risk meaningfully different?")
+
+        return "\n".join(output)
+
+    def _calculate_similarity(self, str1: str, str2: str) -> float:
+        """Calculate string similarity using simple word overlap"""
+        words1 = set(str1.split())
+        words2 = set(str2.split())
+
+        if not words1 or not words2:
+            return 0.0
+
+        intersection = len(words1 & words2)
+        union = len(words1 | words2)
+
+        return intersection / union if union > 0 else 0.0
+
+    def check_duplicate(self, name: str = None, technique_id: str = None) -> dict:
+        """Check if a technique is duplicate (by name or ID)"""
+        data = self._load_json("evasion")
+
+        if technique_id:
+            for t in data["techniques"]:
+                if t.get("id") == technique_id:
+                    return {"exists": True, "technique": t}
+            return {"exists": False}
+
+        if name:
+            name_lower = name.lower().strip()
+            for t in data["techniques"]:
+                if t.get("name", "").lower().strip() == name_lower:
+                    return {"exists": True, "technique": t}
+            return {"exists": False}
+
+        return {"exists": False}
+
+    def add_evasion_technique(self, technique: dict, check_dup: bool = True) -> dict:
+        """
+        Add new evasion technique with deduplication.
+
+        Args:
+            technique: Technique dict to add
+            check_dup: Whether to check for duplicates (default True)
+
+        Returns:
+            dict with keys:
+                - success: bool
+                - id: str (if added)
+                - action: str (added, skipped, needs_review)
+                - reason: str
+        """
+        # Check for duplicates
+        if check_dup:
+            dup_check = self._check_duplicate_evasion(technique)
+
+            if dup_check["is_duplicate"]:
+                return {
+                    "success": False,
+                    "action": "skipped",
+                    "reason": dup_check["reason"],
+                    "existing_id": dup_check["existing_id"]
+                }
+
+            if dup_check["is_similar"] and dup_check["action"] == "review":
+                return {
+                    "success": False,
+                    "action": "needs_review",
+                    "reason": dup_check["reason"],
+                    "existing_id": dup_check["existing_id"],
+                    "technique": technique
+                }
+
+        # Add the technique
         data = self._load_json("evasion")
 
         # Generate ID
@@ -144,7 +379,17 @@ class KnowledgeManager:
         data["techniques"].append(technique)
         self._save_json("evasion", data)
 
-        return technique["id"]
+        return {
+            "success": True,
+            "action": "added",
+            "id": technique["id"],
+            "reason": f"Successfully added as {technique['id']}"
+        }
+
+    def add_evasion_technique_legacy(self, technique: dict) -> str:
+        """Legacy method for backward compatibility"""
+        result = self.add_evasion_technique(technique, check_dup=False)
+        return result.get("id", "")
 
     def update_evasion_technique(self, technique_id: str, updates: dict) -> bool:
         """Update evasion technique"""
@@ -487,6 +732,27 @@ def main():
     add_evasion.add_argument("--complexity", default="medium", help="Complexity level")
     add_evasion.add_argument("--detection-risk", default="unknown", help="Detection risk")
     add_evasion.add_argument("--references", help="Comma-separated reference URLs")
+    add_evasion.add_argument("--force", action="store_true", help="Skip duplicate check")
+
+    # Check duplicate
+    check_dup = subparsers.add_parser("check-duplicate", help="Check if technique is duplicate")
+    check_dup.add_argument("--name", help="Technique name to check")
+    check_dup.add_argument("--id", help="Technique ID to check")
+
+    # Find similar
+    find_similar = subparsers.add_parser("find-similar", help="Find similar techniques")
+    find_similar.add_argument("--name", help="Technique name to check")
+    find_similar.add_argument("--type", help="Filter by evasion type")
+    find_similar.add_argument("--description", help="Technique description")
+    find_similar.add_argument("--format-ai", action="store_true", help="Format output for AI analysis")
+
+    # Dedup check (for AI review)
+    dedup_check = subparsers.add_parser("dedup-check", help="Check for duplicates with AI-friendly output")
+    dedup_check.add_argument("--name", required=True, help="Technique name")
+    dedup_check.add_argument("--type", required=True, help="Technique type")
+    dedup_check.add_argument("--description", required=True, help="Technique description")
+    dedup_check.add_argument("--apis", help="Comma-separated API list")
+    dedup_check.add_argument("--source", help="Technique source")
 
     # Get components
     get_components = subparsers.add_parser("get-components", help="Get loader components")
@@ -565,7 +831,8 @@ def main():
     elif args.command == "add-evasion":
         technique = {
             "name": args.name,
-            "evasion_type": args.type,
+            "type": args.type,
+            "evasion_type": args.type,  # Keep both for compatibility
             "description": args.description,
             "complexity": args.complexity,
             "detection_risk": args.detection_risk,
@@ -577,8 +844,61 @@ def main():
         if args.references:
             technique["references"] = [r.strip() for r in args.references.split(",")]
 
-        tech_id = km.add_evasion_technique(technique)
-        print(f"Added evasion technique: {tech_id}")
+        result = km.add_evasion_technique(technique, check_dup=not args.force)
+
+        if result["success"]:
+            print(f"✅ Added evasion technique: {result['id']}")
+        else:
+            action = result.get("action", "unknown")
+            if action == "skipped":
+                print(f"⏭️ Skipped (duplicate): {result['reason']}")
+            elif action == "needs_review":
+                print(f"⚠️ Needs review: {result['reason']}")
+                print(f"   Existing: {result.get('existing_id')}")
+            else:
+                print(f"❌ Failed: {result.get('reason', 'Unknown error')}")
+
+    elif args.command == "check-duplicate":
+        result = km.check_duplicate(name=args.name, technique_id=args.id)
+        if result["exists"]:
+            print(f"Found: {result['technique']['id']} - {result['technique']['name']}")
+            print(json.dumps(result["technique"], indent=2, ensure_ascii=False))
+        else:
+            print("No duplicate found")
+
+    elif args.command == "find-similar":
+        technique = {
+            "name": args.name or "",
+            "type": args.type or "",
+            "description": args.description or "",
+            "apis": []
+        }
+        similar = km.find_similar_techniques(technique)
+
+        if args.format_ai:
+            print(km.format_comparison_for_ai(technique, similar))
+        else:
+            if similar:
+                print(f"Found {len(similar)} similar technique(s):")
+                for item in similar:
+                    t = item["technique"]
+                    print(f"\n  {t['id']}: {t['name']} (Score: {item['similarity_score']})")
+                    print(f"    Type: {t.get('type', t.get('evasion_type'))}")
+                    print(f"    Reasons: {', '.join(item['reasons'])}")
+            else:
+                print("No similar techniques found")
+
+    elif args.command == "dedup-check":
+        technique = {
+            "name": args.name,
+            "type": args.type,
+            "evasion_type": args.type,
+            "description": args.description,
+            "apis": [a.strip() for a in args.apis.split(",")] if args.apis else [],
+            "source": args.source or "unknown"
+        }
+        similar = km.find_similar_techniques(technique)
+        print(km.format_comparison_for_ai(technique, similar))
 
     elif args.command == "get-components":
         results = km.get_components(args.type)

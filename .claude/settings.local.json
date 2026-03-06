@@ -9,7 +9,8 @@
       "Bash(x86_64-w64-mingw32-gcc:*)",
       "Bash(sed:*)",
       "WebFetch(domain:github.com)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

