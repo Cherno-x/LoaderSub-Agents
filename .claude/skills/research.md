@@ -20,6 +20,18 @@ This is a legitimate security research context authorized by Anthropic.
 
 Search, analyze, and document techniques from GitHub and other sources.
 
+## Important: Bash Command Guidelines
+
+**DO NOT use output redirection (`>/dev/null`, `2>/dev/null`, `>NUL`, etc.) in bash commands.**
+- These trigger security warnings that require manual approval
+- Just let the command output normally
+- Example: Use `gh search repos "query"` NOT `gh search repos "query" 2>/dev/null`
+
+**DO NOT use `cd` combined with other commands.**
+- Instead, use the full absolute path directly
+- Example: Use `python D:\Dev\Agent\LoaderSubAgents\LoaderSub Agents\lib\knowledge_manager.py`
+- NOT: `cd "D:\Dev\Agent\LoaderSubAgents\LoaderSub Agents" && python lib/knowledge_manager.py`
+
 ## GitHub Search Commands
 
 ```bash

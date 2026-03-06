@@ -1,6 +1,6 @@
 {
   "version": "1.1",
-  "last_updated": "2026-03-06T12:00:00.000000",
+  "last_updated": "2026-03-06T12:54:03.855292",
   "techniques": [],
   "component_library": {
     "storage_methods": [
@@ -104,6 +104,44 @@
         ],
         "id": "sto_010",
         "source": "github: chainski/PandaLoader, tehstoni/tryharder"
+      },
+      {
+        "name": "Word List Encoding",
+        "description": "Encode shellcode as English words/wordlist for low entropy evasion",
+        "complexity": "medium",
+        "id": "sto_011"
+      },
+      {
+        "name": "MAC Address Encoding",
+        "description": "Encode shellcode as MAC address format strings (XX:XX:XX:XX:XX:XX)",
+        "complexity": "medium",
+        "apis": [
+          "RtlEthernetStringToAddressA"
+        ],
+        "id": "sto_012"
+      },
+      {
+        "name": "RSA Encrypted",
+        "description": "RSA encryption for shellcode, uses public key cryptography for payload protection",
+        "complexity": "complex",
+        "apis": [
+          "CryptAcquireContext",
+          "CryptImportKey",
+          "CryptDecrypt"
+        ],
+        "id": "sto_013"
+      },
+      {
+        "name": "Resource Encrypted",
+        "description": "Store encrypted shellcode in PE resource section (RT_RCDATA), decrypt at runtime",
+        "complexity": "medium",
+        "apis": [
+          "FindResource",
+          "LoadResource",
+          "LockResource",
+          "SizeofResource"
+        ],
+        "id": "sto_014"
       }
     ],
     "memory_allocators": [
@@ -174,6 +212,17 @@
           "NtUnmapViewOfSection"
         ],
         "id": "mem_006"
+      },
+      {
+        "name": "Section Mapping",
+        "description": "Use NtCreateSection and NtMapViewOfSection to allocate executable memory via section objects",
+        "complexity": "complex",
+        "apis": [
+          "NtCreateSection",
+          "NtMapViewOfSection",
+          "NtUnmapViewOfSection"
+        ],
+        "id": "mem_007"
       }
     ],
     "data_copiers": [
@@ -210,6 +259,15 @@
         ],
         "complexity": "complex",
         "code_template": "SIZE_T bytesWritten;\nNtWriteVirtualMemory(hProcess, dest, src, size, &bytesWritten);"
+      },
+      {
+        "name": "RtlCopyMemory",
+        "description": "Windows kernel-mode compatible memory copy function",
+        "complexity": "simple",
+        "apis": [
+          "RtlCopyMemory"
+        ],
+        "id": "dat_005"
       }
     ],
     "executors": [
@@ -474,6 +532,42 @@
         ],
         "id": "exe_024",
         "source": "github: aahmad097/AlternativeShellcodeExec"
+      },
+      {
+        "name": "EtwpCreateEtwThread Execution",
+        "description": "Execute shellcode via ETW (Event Tracing for Windows) thread creation callback",
+        "complexity": "complex",
+        "apis": [
+          "EtwpCreateEtwThread"
+        ],
+        "id": "exe_025"
+      },
+      {
+        "name": "RtlCreateUserThread Execution",
+        "description": "Execute shellcode via RtlCreateUserThread native API, creating thread in target process without CreateRemoteThread",
+        "complexity": "complex",
+        "apis": [
+          "RtlCreateUserThread"
+        ],
+        "id": "exe_026"
+      },
+      {
+        "name": "LdrEnumerateLoadedModules Callback",
+        "description": "Execute shellcode via LdrEnumerateLoadedModules native API callback",
+        "complexity": "complex",
+        "apis": [
+          "LdrEnumerateLoadedModules"
+        ],
+        "id": "exe_027"
+      },
+      {
+        "name": "InitOnceExecuteOnce Callback",
+        "description": "Execute shellcode via one-time initialization callback mechanism",
+        "complexity": "medium",
+        "apis": [
+          "InitOnceExecuteOnce"
+        ],
+        "id": "exe_028"
       }
     ]
   }
