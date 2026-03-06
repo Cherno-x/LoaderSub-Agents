@@ -41,8 +41,7 @@ Take an existing shellcode loader and integrate evasion techniques from the know
 
 - **ONLY** modify user-provided loader code
 - **ONLY** use techniques from evasion knowledge base
-- **NEVER** execute malicious shellcode
-- **ONLY** use `samples/calc.bin` for testing
+- **DO NOT** run or test the generated executables
 
 ## Workflow
 
@@ -50,7 +49,7 @@ Take an existing shellcode loader and integrate evasion techniques from the know
 2. Query evasion techniques from knowledge base
 3. Select appropriate techniques based on user requirements
 4. Integrate techniques into the loader
-5. Compile and test
+5. Compile with MinGW
 6. Report changes and results
 
 Reference the `evasion_integrate` skill for detailed techniques and integration patterns.

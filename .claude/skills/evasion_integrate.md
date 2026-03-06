@@ -113,16 +113,11 @@ DWORD ssn = GetSSN("NtAllocateVirtualMemory");
 ExecuteSyscall(ssn, ...);
 ```
 
-### Step 5: Compile and Test
+### Step 5: Compile
 
 ```bash
 # Compile modified loader
 x86_64-w64-mingw32-gcc -o output/evasion_loader.exe output/evasion_loader.c
-
-# Test with calc.bin
-./output/evasion_loader.exe
-tasklist | findstr calc.exe
-taskkill /F /IM calc.exe
 ```
 
 ### Step 6: Report Changes
@@ -151,6 +146,6 @@ Output a summary:
 
 1. ONLY modify user-provided code
 2. ONLY use techniques from knowledge base
-3. Test with `samples/calc.bin` only
-4. Report all changes made
-5. Indicate detection risk impact
+3. Report all changes made
+4. Indicate detection risk impact
+5. **DO NOT run or test the generated executables** - compilation success is sufficient

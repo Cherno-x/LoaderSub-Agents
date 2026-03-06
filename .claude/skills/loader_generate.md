@@ -140,15 +140,7 @@ x86_64-w64-mingw32-g++ -o output/loader.exe output/loader.cpp
 cargo build --release --target x86_64-pc-windows-gnu
 ```
 
-### Step 6: Test
-
-```bash
-./output/loader.exe
-tasklist | findstr calc.exe
-taskkill /F /IM calc.exe
-```
-
-### Step 7: Record
+### Step 6: Record
 
 ```bash
 python lib/knowledge_manager.py add-scenario \
@@ -211,5 +203,5 @@ SwitchToFiber(fiber);
 
 1. ALWAYS check `scenarios.json` before generating
 2. ALWAYS use `samples/calc.bin` only
-3. ALWAYS verify calc.exe execution
-4. ALWAYS record results
+3. ALWAYS record results
+4. **DO NOT run or test the generated executables** - compilation success is sufficient
