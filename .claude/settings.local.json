@@ -8,8 +8,22 @@
       "Bash(xxd:*)",
       "Bash(x86_64-w64-mingw32-gcc:*)",
       "Bash(sed:*)",
-      "WebFetch(domain:github.com)",
       "Bash(ls:*)",
+      "Bash(cd:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(git:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(tree:*)",
+      "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
