@@ -277,6 +277,26 @@
       },
       "status": "validated",
       "created_at": "2026-03-05T20:04:41.973592"
+    },
+    {
+      "id": "evasion_001",
+      "name": "Evasion Loader 001",
+      "base_loader": "loader_004",
+      "evasion_techniques": ["T004", "T012", "T014", "T029"],
+      "components": {
+        "storage": "embedded_encrypted_xor",
+        "allocator": "VirtualAlloc",
+        "copier": "memcpy",
+        "executor": "callback_enumchildwindows"
+      },
+      "evasion_details": {
+        "T004_string_xor": "XOR encrypted shellcode with key 0x5A",
+        "T012_anti_debug": "IsDebuggerPresent, CheckRemoteDebuggerPresent, NtGlobalFlag",
+        "T014_etw_bypass": "EtwEventWrite patched with ret",
+        "T029_peb_walking": "API resolution via PEB and hash"
+      },
+      "status": "compiled",
+      "created_at": "2026-03-06T11:26:00.000000"
     }
   ]
 }

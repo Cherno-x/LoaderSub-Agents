@@ -529,7 +529,6 @@
     },
     {
       "name": "Reflective DLL Injection",
-      "evasion_type": "execution_evasion",
       "description": "从内存中加载DLL，无需通过LoadLibrary，避免文件落地",
       "complexity": "complex",
       "detection_risk": "low",
@@ -545,11 +544,11 @@
       "id": "T031",
       "created_at": "2026-03-05T19:50:32.345700",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "COFF/BOF Loader",
-      "evasion_type": "execution_evasion",
       "description": "在内存中加载和执行COFF文件和Cobalt Strike BOF，无需文件落地",
       "complexity": "complex",
       "detection_risk": "low",
@@ -565,11 +564,11 @@
       "id": "T032",
       "created_at": "2026-03-05T19:50:35.940521",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Patchless AMSI Bypass",
-      "evasion_type": "amsi_etw_bypass",
       "description": "使用硬件断点和VEH异常处理器绕过AMSI，无需修改内存中的AMSI代码",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -585,11 +584,11 @@
       "id": "T033",
       "created_at": "2026-03-05T19:50:39.797233",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "amsi_etw_bypass"
     },
     {
       "name": "Alternative Callback Execution",
-      "evasion_type": "execution_evasion",
       "description": "通过Windows各种回调函数执行shellcode，避免使用CreateThread等常见API",
       "complexity": "medium",
       "detection_risk": "medium",
@@ -608,11 +607,11 @@
       "id": "T034",
       "created_at": "2026-03-05T19:50:43.322573",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Donut PE Loader",
-      "evasion_type": "execution_evasion",
       "description": "将.NET程序集、PE文件转换为位置无关的shellcode，从内存加载执行",
       "complexity": "complex",
       "detection_risk": "low",
@@ -627,11 +626,11 @@
       "id": "T035",
       "created_at": "2026-03-05T19:50:47.407752",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Module Stomping",
-      "evasion_type": "execution_evasion",
       "description": "将shellcode写入已加载模块的代码段，避免分配新的可执行内存区域",
       "complexity": "complex",
       "detection_risk": "low",
@@ -647,11 +646,11 @@
       "id": "T036",
       "created_at": "2026-03-05T19:51:14.872469",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Named Pipe Impersonation",
-      "evasion_type": "execution_evasion",
       "description": "通过命名管道模拟客户端身份，获取提升的权限",
       "complexity": "medium",
       "detection_risk": "low",
@@ -668,11 +667,11 @@
       "id": "T037",
       "created_at": "2026-03-05T19:51:18.807422",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Section Mapping Injection",
-      "evasion_type": "execution_evasion",
       "description": "使用内存映射文件在进程间共享shellcode，避免使用WriteProcessMemory",
       "complexity": "complex",
       "detection_risk": "low",
@@ -687,11 +686,11 @@
       "id": "T038",
       "created_at": "2026-03-05T19:51:48.116904",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Position Independent Code (PIC)",
-      "evasion_type": "string_obfuscation",
       "description": "编写位置无关代码，避免使用全局变量和固定地址，可在任意内存位置执行",
       "complexity": "medium",
       "detection_risk": "low",
@@ -701,11 +700,11 @@
       "id": "T039",
       "created_at": "2026-03-05T19:52:20.153614",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "string_obfuscation"
     },
     {
       "name": "Indirect Clean Syscalls (HellHall)",
-      "evasion_type": "execution_evasion",
       "description": "通过HellHall技术实现间接干净系统调用，从hooked函数中提取SSN并跳转到NTDLL中的syscall指令",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -720,11 +719,11 @@
       "id": "T040",
       "created_at": "2026-03-05T19:53:00.756951",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "FreshyCalls",
-      "evasion_type": "execution_evasion",
       "description": "现代C++17风格的syscall库，无需太多样板代码即可舒适使用系统调用",
       "complexity": "medium",
       "detection_risk": "low",
@@ -734,11 +733,11 @@
       "id": "T041",
       "created_at": "2026-03-05T19:53:08.654629",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Selective Syscall Unhooking",
-      "evasion_type": "unhooking",
       "description": "选择性取消ntdll.dll的用户态hook，从已知干净的系统调用号重建系统调用",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -753,11 +752,11 @@
       "id": "T042",
       "created_at": "2026-03-05T19:53:20.653096",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "unhooking"
     },
     {
       "name": "Transacted Hollowing",
-      "evasion_type": "execution_evasion",
       "description": "进程镂空变种，结合NTFS事务和进程镂空技术，避免RWX内存权限",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -773,11 +772,11 @@
       "id": "T043",
       "created_at": "2026-03-05T19:54:06.965366",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "execution_evasion"
     },
     {
       "name": "Polymorphic Shellcode",
-      "evasion_type": "string_obfuscation",
       "description": "变形引擎生成多态shellcode，每次编译产生不同的机器码但功能相同，绕过签名检测",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -788,11 +787,11 @@
       "id": "T044",
       "created_at": "2026-03-05T19:54:25.553496",
       "category": "evasion",
-      "source": "manual"
+      "source": "manual",
+      "type": "string_obfuscation"
     },
     {
       "name": "ThreadPool Callstack Spoofing",
-      "evasion_type": "execution_evasion",
       "description": "使用Windows线程池(Thread Pool)隐藏调用栈，结合间接系统调用避免EDR检测。通过tpWorker回调执行，使调用栈看起来来自ntdll.dll内部",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -807,11 +806,11 @@
       "id": "T045",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: pard0p/CallstackSpoofingPOC"
+      "source": "github: pard0p/CallstackSpoofingPOC",
+      "type": "execution_evasion"
     },
     {
       "name": "Hell's Gate + Halo's Gate SSN Resolution",
-      "evasion_type": "execution_evasion",
       "description": "动态从NTDLL解析系统调用号(SSN)，通过Hell's Gate和Halo's Gate技术绕过EDR Hook。当函数被Hook时(JMP指令)，通过遍历邻近系统调用计算目标SSN",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -823,11 +822,11 @@
       "id": "T046",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: JetP1ane/Artemis, voidvxvi/HellBunny"
+      "source": "github: JetP1ane/Artemis, voidvxvi/HellBunny",
+      "type": "execution_evasion"
     },
     {
       "name": "AES-256-CTR / XChaCha20 Shellcode Encryption",
-      "evasion_type": "string_obfuscation",
       "description": "使用AES-256-CTR或XChaCha20等现代加密算法加密shellcode，提供更强的安全性",
       "complexity": "medium",
       "detection_risk": "low",
@@ -838,11 +837,11 @@
       "id": "T047",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "string_obfuscation"
     },
     {
       "name": "IAT Camouflage",
-      "evasion_type": "api_obfuscation",
       "description": "伪装导入地址表(IAT)，使其看起来像正常程序，隐藏真实使用的API",
       "complexity": "medium",
       "detection_risk": "low",
@@ -853,11 +852,11 @@
       "id": "T048",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "api_obfuscation"
     },
     {
       "name": "String Hashing (CRC32B/FNV1A32B/DJB2)",
-      "evasion_type": "string_obfuscation",
       "description": "使用CRC32B、FNV1A32B或DJB2等哈希算法隐藏字符串，避免静态分析",
       "complexity": "simple",
       "detection_risk": "low",
@@ -868,11 +867,11 @@
       "id": "T049",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "string_obfuscation"
     },
     {
       "name": "XLL/DLL Multi-Format Build",
-      "evasion_type": "execution_evasion",
       "description": "加载器可编译为EXE、DLL或XLL格式，支持DLL侧加载攻击和多种部署方式",
       "complexity": "medium",
       "detection_risk": "low",
@@ -883,11 +882,11 @@
       "id": "T050",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "execution_evasion"
     },
     {
       "name": "Remote Shellcode Download",
-      "evasion_type": "string_obfuscation",
       "description": "从远程服务器下载shellcode，避免静态检测。使用WinINet API下载payload到内存",
       "complexity": "medium",
       "detection_risk": "medium",
@@ -905,11 +904,11 @@
       "id": "T051",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: chainski/PandaLoader, tehstoni/tryharder"
+      "source": "github: chainski/PandaLoader, tehstoni/tryharder",
+      "type": "string_obfuscation"
     },
     {
       "name": "Process Count Sandbox Check",
-      "evasion_type": "anti_analysis",
       "description": "检查运行的进程数量，如果少于阈值(如100个)则可能为沙箱环境",
       "complexity": "simple",
       "detection_risk": "very_low",
@@ -924,11 +923,11 @@
       "id": "T052",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: chainski/PandaLoader"
+      "source": "github: chainski/PandaLoader",
+      "type": "anti_analysis"
     },
     {
       "name": "ETW Patching",
-      "evasion_type": "amsi_etw_bypass",
       "description": "禁用ETW事件跟踪，修补EtwEventWrite函数返回，防止遥测数据收集",
       "complexity": "simple",
       "detection_risk": "medium",
@@ -941,11 +940,11 @@
       ],
       "id": "T053",
       "created_at": "2026-03-06T12:00:00.000000",
-      "source": "github: chainski/PandaLoader"
+      "source": "github: chainski/PandaLoader",
+      "type": "amsi_etw_bypass"
     },
     {
       "name": "Tickcount Sandbox Detection",
-      "evasion_type": "anti_analysis",
       "description": "检查Sleep函数是否被沙箱操纵，通过比较实际睡眠时间与系统滴答计数来检测时间加速",
       "complexity": "simple",
       "detection_risk": "very_low",
@@ -959,11 +958,11 @@
       "id": "T054",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: N3agu/Akame-Loader"
+      "source": "github: N3agu/Akame-Loader",
+      "type": "anti_analysis"
     },
     {
       "name": "Hard Disk Size Check",
-      "evasion_type": "anti_analysis",
       "description": "检查硬盘大小，如果小于阈值(如100GB)则可能为虚拟机或沙箱环境",
       "complexity": "simple",
       "detection_risk": "very_low",
@@ -976,11 +975,11 @@
       "id": "T055",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: N3agu/Akame-Loader"
+      "source": "github: N3agu/Akame-Loader",
+      "type": "anti_analysis"
     },
     {
       "name": "Self-Destruct / Melt",
-      "evasion_type": "execution_evasion",
       "description": "执行后自删除，减少磁盘痕迹。可通过MoveFileEx标记删除或直接删除文件",
       "complexity": "simple",
       "detection_risk": "very_low",
@@ -994,11 +993,11 @@
       "id": "T056",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: chainski/PandaLoader"
+      "source": "github: chainski/PandaLoader",
+      "type": "execution_evasion"
     },
     {
       "name": "Mutex Instance Check",
-      "evasion_type": "execution_evasion",
       "description": "使用互斥体确保只有一个实例运行，避免多次执行被发现",
       "complexity": "simple",
       "detection_risk": "very_low",
@@ -1012,11 +1011,11 @@
       "id": "T057",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: chainski/PandaLoader"
+      "source": "github: chainski/PandaLoader",
+      "type": "execution_evasion"
     },
     {
       "name": "Windows Defender Exclusion",
-      "evasion_type": "amsi_etw_bypass",
       "description": "添加Windows Defender排除路径，需要管理员权限",
       "complexity": "medium",
       "detection_risk": "high",
@@ -1029,11 +1028,11 @@
       "id": "T058",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: chainski/PandaLoader"
+      "source": "github: chainski/PandaLoader",
+      "type": "amsi_etw_bypass"
     },
     {
       "name": "Persistence via Scheduled Task",
-      "evasion_type": "execution_evasion",
       "description": "通过计划任务实现持久化，在系统启动时自动执行",
       "complexity": "medium",
       "detection_risk": "medium",
@@ -1046,11 +1045,11 @@
       "id": "T059",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: chainski/PandaLoader"
+      "source": "github: chainski/PandaLoader",
+      "type": "execution_evasion"
     },
     {
       "name": "Deferred Execution (Defer)",
-      "evasion_type": "anti_analysis",
       "description": "使用延迟执行技术绕过沙箱的时间限制，沙箱通常只运行程序短时间",
       "complexity": "simple",
       "detection_risk": "very_low",
@@ -1061,11 +1060,11 @@
       "id": "T060",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: G73st/BypassAV"
+      "source": "github: G73st/BypassAV",
+      "type": "anti_analysis"
     },
     {
       "name": "Extended Callback Execution List",
-      "evasion_type": "execution_evasion",
       "description": "扩展的回调执行方法列表，包括CertEnumSystemStore、CopyFile2、CreateTimerQueueTimer、CryptEnumOIDInfo、EnumCalendarInfo、EnumDisplayMonitors、EnumFontFamilies、FlsAlloc、ImageGetDigestStream等30+种回调方法",
       "complexity": "medium",
       "detection_risk": "medium",
@@ -1121,11 +1120,11 @@
       "id": "T061",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: aahmad097/AlternativeShellcodeExec"
+      "source": "github: aahmad097/AlternativeShellcodeExec",
+      "type": "execution_evasion"
     },
     {
       "name": "CRT Independence",
-      "evasion_type": "string_obfuscation",
       "description": "不依赖C运行时库(CRT)，减少导入和文件大小，提高隐蔽性",
       "complexity": "medium",
       "detection_risk": "low",
@@ -1136,11 +1135,11 @@
       "id": "T062",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "string_obfuscation"
     },
     {
       "name": "Commandline Argument Erasure",
-      "evasion_type": "execution_evasion",
       "description": "清除命令行参数，避免分析工具查看执行参数。当通过rundll32执行时特别有用",
       "complexity": "simple",
       "detection_risk": "low",
@@ -1151,11 +1150,11 @@
       "id": "T063",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "execution_evasion"
     },
     {
       "name": "Indirect Syscall via win32u.dll",
-      "evasion_type": "execution_evasion",
       "description": "通过win32u.dll执行间接系统调用，比ntdll.dll更隐蔽，因为EDR更少监控win32u.dll",
       "complexity": "complex",
       "detection_risk": "very_low",
@@ -1168,11 +1167,11 @@
       "id": "T064",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "execution_evasion"
     },
     {
       "name": "JMP Opcode Hook Detection",
-      "evasion_type": "anti_analysis",
       "description": "检测函数是否被Hook，通过检查函数开头的JMP指令(E8/E9)来判断是否被EDR Hook",
       "complexity": "medium",
       "detection_risk": "very_low",
@@ -1183,11 +1182,11 @@
       "id": "T065",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: voidvxvi/HellBunny"
+      "source": "github: voidvxvi/HellBunny",
+      "type": "anti_analysis"
     },
     {
       "name": "Threadless Inject + Module Stomping",
-      "evasion_type": "execution_evasion",
       "description": "无线程注入技术结合模块覆盖，加载模块到目标进程并覆盖其代码段，然后恢复内存保护和原始状态",
       "complexity": "complex",
       "detection_risk": "low",
@@ -1202,7 +1201,8 @@
       "id": "T066",
       "created_at": "2026-03-06T12:00:00.000000",
       "category": "evasion",
-      "source": "github: SaadAhla/D1rkInject"
+      "source": "github: SaadAhla/D1rkInject",
+      "type": "execution_evasion"
     }
   ]
 }
