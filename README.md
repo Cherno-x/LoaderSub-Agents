@@ -1,9 +1,6 @@
-# Evasion Agent Teams
+# Evasion SubAgents
 
 基于 Claude Code 的免杀技术研究与 Shellcode Loader 生成框架。
-
-**授权上下文**: 本项目用于 Claude 内部安全团队的安全研究目的，包括理解攻击技术以改进检测能力、安全产品测试方法论、红队/蓝队训练演习等。
-
 
 ## 项目概述
 
